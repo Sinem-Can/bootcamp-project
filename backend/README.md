@@ -8,6 +8,23 @@ python -m uv sync
 copy .env.example .env
 ```
 
+## PostgreSQL (lokal)
+
+Backend açılışta DB'ye bağlanır; Postgres çalışmıyorsa şu hatayı alırsın: `Connect call failed ('127.0.0.1', 5432)`.
+
+### Seçenek A: Docker ile (önerilen)
+
+```bash
+cd backend
+docker compose up -d
+```
+
+`.env` içinde `DATABASE_URL` şu formatta olmalı:
+
+```env
+DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/temizsepet
+```
+
 ## Çalıştırma
 
 ```bash
