@@ -3,8 +3,8 @@ from __future__ import annotations
 from datetime import datetime
 
 from sqlalchemy import DateTime, Integer, String, Text, func
-from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.types import JSON
 
 
 class Base(DeclarativeBase):
@@ -17,9 +17,9 @@ class User(Base):
   id: Mapped[int] = mapped_column(Integer, primary_key=True)
   email: Mapped[str] = mapped_column(String(320), unique=True, index=True, nullable=False)
   hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
-  alerjenler: Mapped[dict] = mapped_column(JSONB, default=dict, nullable=False)
+  alerjenler: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
   diyet_tipi: Mapped[str | None] = mapped_column(String(64), nullable=True)
-  istenmeyen_maddeler: Mapped[dict] = mapped_column(JSONB, default=dict, nullable=False)
+  istenmeyen_maddeler: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
 
 
 class Product(Base):
