@@ -1,4 +1,4 @@
-#!C:\Users\Sinem Can\TemizSepet\backend\.venv\Scripts\python.exe
+#!D:\3.SINIF BAHAR\TemizSepet\backend\.venv\Scripts\python.exe
 
 import sys
 import json
