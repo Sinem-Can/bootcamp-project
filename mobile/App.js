@@ -1,16 +1,19 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
   Modal,
   Platform,
   SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { CameraView, useCameraPermissions } from "expo-camera";
 
 const TOKENS = {
   primary: "#059669",
@@ -22,17 +25,17 @@ const TOKENS = {
   textSecondary: "#64748B",
 };
 
-const RECENT_SCANS = [
-  { id: "1", name: "Tam Yağlı Süt", score: 86 },
-  { id: "2", name: "Fıstık Ezmesi", score: 62 },
-  { id: "3", name: "Çikolata", score: 28 },
-  { id: "4", name: "Yulaf Bar", score: 74 },
+const TAB_ITEMS = [
+  { id: "home", label: "Home", icon: "home-outline" },
+  { id: "history", label: "History", icon: "time-outline" },
+  { id: "profile", label: "Profile", icon: "person-outline" },
 ];
 
-const TABS = [
-  { id: "home", label: "Ana Sayfa", icon: "home-outline" },
-  { id: "profile", label: "Profil", icon: "person-outline" },
-  { id: "settings", label: "Ayarlar", icon: "settings-outline" },
+const INITIAL_HISTORY = [
+  { id: "h1", name: "Tam Yağlı Süt", score: 86, date: "Bugün" },
+  { id: "h2", name: "Fıstık Ezmesi", score: 62, date: "Dün" },
+  { id: "h3", name: "Çikolata", score: 28, date: "2 gün önce" },
+  { id: "h4", name: "Yulaf Bar", score: 74, date: "Geçen hafta" },
 ];
 
 function getScoreVariant(score) {
@@ -43,243 +46,623 @@ function getScoreVariant(score) {
 
 function getVariantColors(variant) {
   if (variant === "good") {
-    return {
-      text: TOKENS.primary,
-      tint: "rgba(5, 150, 105, 0.10)",
-    };
+    return { text: TOKENS.primary, tint: "rgba(5, 150, 105, 0.10)" };
   }
   if (variant === "warning") {
-    return {
-      text: TOKENS.warning,
-      tint: "rgba(245, 158, 11, 0.10)",
-    };
+    return { text: TOKENS.warning, tint: "rgba(245, 158, 11, 0.10)" };
   }
-  return {
-    text: TOKENS.danger,
-    tint: "rgba(239, 68, 68, 0.10)",
-  };
+  return { text: TOKENS.danger, tint: "rgba(239, 68, 68, 0.10)" };
 }
 
-function VariantChip({ variant, children }) {
+function VariantChip({ variant, children, icon }) {
   const c = getVariantColors(variant);
   return (
     <View style={[styles.chip, { backgroundColor: c.tint }]}>
+      {icon ? (
+        <Ionicons
+          name={icon}
+          size={14}
+          color={c.text}
+          style={{ marginRight: 6 }}
+        />
+      ) : null}
       <Text style={[styles.chipText, { color: c.text }]}>{children}</Text>
     </View>
   );
 }
 
+function PremiumCard({ children, style }) {
+  return <View style={[styles.cardBase, style]}>{children}</View>;
+}
+
+function PrimaryButton({ label, icon, onPress, style }) {
+  return (
+    <TouchableOpacity
+      activeOpacity={0.9}
+      accessibilityRole="button"
+      style={[styles.primaryButton, style]}
+      onPress={onPress}
+    >
+      <View style={styles.primaryButtonInner}>
+        {icon ? (
+          <View style={styles.primaryButtonIcon}>
+            <Ionicons name={icon} size={20} color={TOKENS.surface} />
+          </View>
+        ) : null}
+        <Text style={styles.primaryButtonText}>{label}</Text>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+function LoginScreen({ onLogin }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  const canLogin = email.trim().length > 2 && password.trim().length > 2;
+
+  return (
+    <SafeAreaView style={styles.safe}>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <ScrollView
+          contentContainerStyle={styles.authContainer}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.authHeader}>
+            <Text style={styles.authTitle}>TemizSepet</Text>
+            <Text style={styles.authSubtitle}>
+              Premium analiz deneyimi için giriş yap
+            </Text>
+          </View>
+
+          <PremiumCard style={{ padding: 18, borderRadius: 24 }}>
+            <Text style={styles.inputLabel}>Email</Text>
+            <View style={styles.inputWrap}>
+              <Ionicons
+                name="mail-outline"
+                size={18}
+                color={TOKENS.textSecondary}
+              />
+              <TextInput
+                value={email}
+                onChangeText={setEmail}
+                placeholder="ornek@domain.com"
+                placeholderTextColor={TOKENS.textSecondary}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                style={styles.input}
+              />
+            </View>
+
+            <Text style={[styles.inputLabel, { marginTop: 14 }]}>Şifre</Text>
+            <View style={styles.inputWrap}>
+              <Ionicons
+                name="lock-closed-outline"
+                size={18}
+                color={TOKENS.textSecondary}
+              />
+              <TextInput
+                value={password}
+                onChangeText={setPassword}
+                placeholder="••••••••"
+                placeholderTextColor={TOKENS.textSecondary}
+                secureTextEntry
+                style={styles.input}
+              />
+            </View>
+
+            <PrimaryButton
+              label="Giriş Yap"
+              icon="log-in-outline"
+              style={{ marginTop: 18, opacity: canLogin ? 1 : 0.6 }}
+              onPress={() => {
+                if (!canLogin) return;
+                onLogin({ email });
+              }}
+            />
+          </PremiumCard>
+
+          <Text style={styles.authFootnote}>
+            Dev mod: Backend bağlı değil, giriş local state ile simüle edilir.
+          </Text>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
+}
+
+function CameraScanModal({ visible, onClose, onSimulateScan }) {
+  const [permission, requestPermission] = useCameraPermissions();
+
+  useEffect(() => {
+    if (!visible) return;
+    if (!permission || permission.status !== "granted") {
+      requestPermission();
+    }
+  }, [visible, permission, requestPermission]);
+
+  return (
+    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+      <SafeAreaView style={[styles.safe, { backgroundColor: "#000000" }]}>
+        <View style={styles.cameraTopBar}>
+          <Text style={styles.cameraTitle}>Tarama</Text>
+          <TouchableOpacity
+            accessibilityRole="button"
+            onPress={onClose}
+            activeOpacity={0.85}
+            style={styles.cameraClose}
+          >
+            <Ionicons name="close" size={18} color={TOKENS.textPrimary} />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.cameraStage}>
+          {permission?.status === "granted" ? (
+            <CameraView style={styles.camera} facing="back" />
+          ) : (
+            <View style={styles.cameraPermission}>
+              <Text style={styles.cameraPermissionTitle}>
+                Kamera izni gerekli
+              </Text>
+              <Text style={styles.cameraPermissionSub}>
+                Ürün barkodlarını taramak için kameraya erişim ver.
+              </Text>
+              <PrimaryButton
+                label="İzin Ver"
+                icon="camera-outline"
+                onPress={requestPermission}
+                style={{ marginTop: 16 }}
+              />
+            </View>
+          )}
+
+          <View style={styles.scanOverlay} pointerEvents="none">
+            <View style={styles.scanFrame} />
+            <Text style={styles.scanHint}>Barkodu kadraja hizala</Text>
+          </View>
+        </View>
+
+        <View style={styles.cameraBottom}>
+          <PrimaryButton
+            label="Tara"
+            icon="barcode-outline"
+            onPress={onSimulateScan}
+          />
+          <Text style={styles.cameraBottomHint}>
+            Demo: “Tara” ile analiz simülasyonu başlar.
+          </Text>
+        </View>
+      </SafeAreaView>
+    </Modal>
+  );
+}
+
+function AnalysisModal({ visible, onClose, product }) {
+  const [step, setStep] = useState("loading"); // loading | result
+  const timerRef = useRef(null);
+
+  useEffect(() => {
+    if (!visible) return;
+    setStep("loading");
+    timerRef.current = setTimeout(() => setStep("result"), 2000);
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [visible]);
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalCard}>
+          {step === "loading" ? (
+            <View style={styles.loadingBlock}>
+              <ActivityIndicator size="large" color={TOKENS.primary} />
+              <Text style={styles.modalTitle}>Ürün Analiz Ediliyor...</Text>
+              <Text style={styles.modalSub}>
+                İçerikler sağlık standartlarına göre değerlendiriliyor
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.resultBlock}>
+              <View style={styles.resultHeader}>
+                <View style={styles.resultThumb}>
+                  <Ionicons
+                    name="nutrition-outline"
+                    size={20}
+                    color={TOKENS.textSecondary}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.modalTitle}>{product?.name ?? "Popkek"}</Text>
+                  <Text style={styles.modalSub}>Örnek içerik analizi</Text>
+                </View>
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  onPress={onClose}
+                  activeOpacity={0.85}
+                  style={styles.closeButton}
+                >
+                  <Ionicons name="close" size={18} color={TOKENS.textPrimary} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.modalSection}>
+                <Text style={styles.modalSectionTitle}>Riskli İçerikler</Text>
+                <View style={styles.chipsRow}>
+                  <VariantChip variant="danger" icon="warning-outline">
+                    Palmiye Yağı
+                  </VariantChip>
+                  <VariantChip variant="warning" icon="alert-circle-outline">
+                    Şeker Oranı Yüksek
+                  </VariantChip>
+                </View>
+              </View>
+
+              <View style={styles.modalSection}>
+                <Text style={styles.modalSectionTitle}>Temiz İçerikler</Text>
+                <View style={styles.chipsRow}>
+                  <VariantChip variant="good" icon="checkmark-circle-outline">
+                    Doğal Aroma
+                  </VariantChip>
+                </View>
+              </View>
+
+              <PrimaryButton label="Kapat" icon="close-outline" onPress={onClose} />
+            </View>
+          )}
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function HomeScreen({ onOpenCamera, recent }) {
+  return (
+    <ScrollView
+      contentContainerStyle={styles.screenContainer}
+      showsVerticalScrollIndicator={false}
+    >
+      <View style={styles.header}>
+        <Text style={styles.title}>Hoş geldin, Sinem</Text>
+        <Text style={styles.subtitle}>
+          Bugün sağlığın için ne taramak istersin?
+        </Text>
+      </View>
+
+      <View style={{ paddingTop: 24, paddingBottom: 28 }}>
+        <PrimaryButton label="Yeni Ürün Tara" icon="barcode-outline" onPress={onOpenCamera} />
+      </View>
+
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Geçmiş Taramalar</Text>
+        <Text style={styles.sectionHint}>Son taradıkların</Text>
+      </View>
+
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.horizontalList}
+      >
+        {recent.map((item) => {
+          const variant = getScoreVariant(item.score);
+          const c = getVariantColors(variant);
+          return (
+            <PremiumCard key={item.id} style={styles.recentCard}>
+              <View style={styles.recentTopRow}>
+                <View style={styles.thumb}>
+                  <Ionicons
+                    name="fast-food-outline"
+                    size={18}
+                    color={TOKENS.textSecondary}
+                  />
+                </View>
+                <View style={[styles.scorePill, { backgroundColor: c.tint }]}>
+                  <Text style={[styles.scorePillText, { color: c.text }]}>
+                    {item.score}/100
+                  </Text>
+                </View>
+              </View>
+              <Text style={styles.cardTitle} numberOfLines={2}>
+                {item.name}
+              </Text>
+              <Text style={styles.cardMeta}>{item.date}</Text>
+            </PremiumCard>
+          );
+        })}
+      </ScrollView>
+    </ScrollView>
+  );
+}
+
+function HistoryScreen({ history }) {
+  const weeklyScore = 78;
+  const weeklyVariant = getScoreVariant(weeklyScore);
+  const c = getVariantColors(weeklyVariant);
+
+  return (
+    <ScrollView
+      contentContainerStyle={styles.screenContainer}
+      showsVerticalScrollIndicator={false}
+    >
+      <View style={styles.header}>
+        <Text style={styles.title}>Geçmiş</Text>
+        <Text style={styles.subtitle}>Haftalık özet ve tarama geçmişin</Text>
+      </View>
+
+      <View style={{ paddingTop: 18, paddingBottom: 18 }}>
+        <PremiumCard style={[styles.weeklyCard, { borderRadius: 24 }]}>
+          <View style={styles.weeklyTop}>
+            <View>
+              <Text style={styles.weeklyLabel}>Haftalık Sağlık Puanın</Text>
+              <Text style={styles.weeklyScore}>{weeklyScore}</Text>
+            </View>
+            <View style={[styles.scorePill, { backgroundColor: c.tint }]}>
+              <Text style={[styles.scorePillText, { color: c.text }]}>
+                {weeklyVariant === "good"
+                  ? "İyi"
+                  : weeklyVariant === "warning"
+                  ? "Orta"
+                  : "Risk"}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.progressTrack}>
+            <View
+              style={[
+                styles.progressFill,
+                { width: `${weeklyScore}%`, backgroundColor: c.text },
+              ]}
+            />
+          </View>
+          <Text style={styles.weeklyHint}>
+            Skor; içerik riskleri, şeker/yağ dengesi ve katkı profiline göre
+            simüle edilmiştir.
+          </Text>
+        </PremiumCard>
+      </View>
+
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Tarama Geçmişi</Text>
+        <Text style={styles.sectionHint}>Tüm taramalar</Text>
+      </View>
+
+      <View style={{ gap: 12 }}>
+        {history.map((item) => {
+          const variant = getScoreVariant(item.score);
+          const vc = getVariantColors(variant);
+          return (
+            <PremiumCard key={item.id} style={styles.historyRow}>
+              <View style={styles.historyIcon}>
+                <Ionicons
+                  name="receipt-outline"
+                  size={18}
+                  color={TOKENS.textSecondary}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.historyTitle} numberOfLines={1}>
+                  {item.name}
+                </Text>
+                <Text style={styles.historySub}>{item.date}</Text>
+              </View>
+              <View style={[styles.scorePill, { backgroundColor: vc.tint }]}>
+                <Text style={[styles.scorePillText, { color: vc.text }]}>
+                  {item.score}
+                </Text>
+              </View>
+            </PremiumCard>
+          );
+        })}
+      </View>
+    </ScrollView>
+  );
+}
+
+function ProfileScreen({ userEmail, onLogout }) {
+  return (
+    <ScrollView
+      contentContainerStyle={styles.screenContainer}
+      showsVerticalScrollIndicator={false}
+    >
+      <View style={styles.header}>
+        <Text style={styles.title}>Profil</Text>
+        <Text style={styles.subtitle}>Ayarların ve sağlık tercihlerin</Text>
+      </View>
+
+      <View style={{ paddingTop: 18, gap: 12 }}>
+        <PremiumCard style={{ padding: 18, borderRadius: 24 }}>
+          <Text style={styles.profileLabel}>Email</Text>
+          <Text style={styles.profileValue}>{userEmail}</Text>
+          <View style={{ height: 14 }} />
+          <Text style={styles.profileLabel}>Durum</Text>
+          <VariantChip variant="good" icon="shield-checkmark-outline">
+            Premium Dashboard
+          </VariantChip>
+        </PremiumCard>
+
+        <PrimaryButton label="Çıkış Yap" icon="log-out-outline" onPress={onLogout} />
+      </View>
+    </ScrollView>
+  );
+}
+
+function TabBar({ activeTab, onChange }) {
+  return (
+    <View style={styles.tabBar}>
+      {TAB_ITEMS.map((t) => {
+        const isActive = activeTab === t.id;
+        return (
+          <TouchableOpacity
+            key={t.id}
+            accessibilityRole="button"
+            activeOpacity={0.85}
+            style={styles.tabItem}
+            onPress={() => onChange(t.id)}
+          >
+            <Ionicons
+              name={t.icon}
+              size={22}
+              color={isActive ? TOKENS.primary : TOKENS.textSecondary}
+            />
+            <Text
+              style={[
+                styles.tabLabel,
+                { color: isActive ? TOKENS.primary : TOKENS.textSecondary },
+              ]}
+            >
+              {t.label}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+}
+
 export default function App() {
-  const scans = useMemo(
+  const history = useMemo(
     () =>
-      RECENT_SCANS.map((s) => ({
-        ...s,
-        variant: getScoreVariant(s.score),
+      INITIAL_HISTORY.map((h) => ({
+        ...h,
+        variant: getScoreVariant(h.score),
       })),
     []
   );
 
+  const [session, setSession] = useState({ isAuthed: false, email: "" });
   const [activeTab, setActiveTab] = useState("home");
+  const [cameraOpen, setCameraOpen] = useState(false);
   const [analysisOpen, setAnalysisOpen] = useState(false);
-  const [analysisStep, setAnalysisStep] = useState("loading"); // loading | result
-  const timerRef = useRef(null);
+  const [analysisProduct, setAnalysisProduct] = useState(null);
 
-  useEffect(() => {
-    if (!analysisOpen) return;
-    setAnalysisStep("loading");
-    timerRef.current = setTimeout(() => setAnalysisStep("result"), 2000);
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
-  }, [analysisOpen]);
+  const openAnalysisFor = (product) => {
+    setAnalysisProduct(product ?? { name: "Popkek" });
+    setAnalysisOpen(true);
+  };
+
+  if (!session.isAuthed) {
+    return (
+      <LoginScreen
+        onLogin={({ email }) => setSession({ isAuthed: true, email })}
+      />
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safe}>
-      <View style={styles.screen}>
-        <ScrollView
-          contentContainerStyle={styles.container}
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.header}>
-            <Text style={styles.title}>Hoş geldin, Sinem</Text>
-            <Text style={styles.subtitle}>
-              Bugün sağlığın için ne taramak istersin?
-            </Text>
-          </View>
-
-          <View style={styles.ctaWrap}>
-            <TouchableOpacity
-              activeOpacity={0.9}
-              accessibilityRole="button"
-              style={styles.ctaButton}
-              onPress={() => setAnalysisOpen(true)}
-            >
-              <View style={styles.ctaInner}>
-                <View style={styles.ctaIcon}>
-                  <Ionicons
-                    name="barcode-outline"
-                    size={20}
-                    color={TOKENS.surface}
-                  />
-                </View>
-                <Text style={styles.ctaText}>Yeni Ürün Tara</Text>
-              </View>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Geçmiş Taramalar</Text>
-            <Text style={styles.sectionHint}>Son taradıkların</Text>
-          </View>
-
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.horizontalList}
-          >
-            {scans.map((item) => {
-              const c = getVariantColors(item.variant);
-              return (
-                <View key={item.id} style={styles.card}>
-                  <View style={styles.cardTopRow}>
-                    <View style={styles.thumb}>
-                      <Ionicons
-                        name="fast-food-outline"
-                        size={18}
-                        color={TOKENS.textSecondary}
-                      />
-                    </View>
-                    <View style={[styles.scorePill, { backgroundColor: c.tint }]}>
-                      <Text style={[styles.scorePillText, { color: c.text }]}>
-                        {item.score}/100
-                      </Text>
-                    </View>
-                  </View>
-
-                  <Text style={styles.cardTitle} numberOfLines={2}>
-                    {item.name}
-                  </Text>
-                  <Text style={styles.cardMeta}>Mini sağlık skoru</Text>
-                </View>
-              );
-            })}
-          </ScrollView>
-        </ScrollView>
-
-        <View style={styles.tabBar}>
-          {TABS.map((t) => {
-            const isActive = activeTab === t.id;
-            return (
-              <TouchableOpacity
-                key={t.id}
-                accessibilityRole="button"
-                activeOpacity={0.85}
-                style={styles.tabItem}
-                onPress={() => setActiveTab(t.id)}
-              >
-                <Ionicons
-                  name={t.icon}
-                  size={22}
-                  color={isActive ? TOKENS.primary : TOKENS.textSecondary}
-                />
-                <Text
-                  style={[
-                    styles.tabLabel,
-                    { color: isActive ? TOKENS.primary : TOKENS.textSecondary },
-                  ]}
-                >
-                  {t.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
+      <View style={styles.appShell}>
+        <View style={styles.flex}>
+          {activeTab === "home" ? (
+            <HomeScreen
+              recent={history.slice(0, 4)}
+              onOpenCamera={() => setCameraOpen(true)}
+            />
+          ) : null}
+          {activeTab === "history" ? <HistoryScreen history={history} /> : null}
+          {activeTab === "profile" ? (
+            <ProfileScreen
+              userEmail={session.email}
+              onLogout={() => setSession({ isAuthed: false, email: "" })}
+            />
+          ) : null}
         </View>
+
+        <TabBar activeTab={activeTab} onChange={setActiveTab} />
       </View>
 
-      <Modal
+      <CameraScanModal
+        visible={cameraOpen}
+        onClose={() => setCameraOpen(false)}
+        onSimulateScan={() => {
+          setCameraOpen(false);
+          openAnalysisFor({ name: "Popkek" });
+        }}
+      />
+
+      <AnalysisModal
         visible={analysisOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setAnalysisOpen(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            {analysisStep === "loading" ? (
-              <View style={styles.loadingBlock}>
-                <ActivityIndicator size="large" color={TOKENS.primary} />
-                <Text style={styles.modalTitle}>Analiz Ediliyor...</Text>
-                <Text style={styles.modalSub}>
-                  İçerikler sağlık profilinle karşılaştırılıyor
-                </Text>
-              </View>
-            ) : (
-              <View style={styles.resultBlock}>
-                <View style={styles.resultHeader}>
-                  <View style={styles.resultThumb}>
-                    <Ionicons
-                      name="nutrition-outline"
-                      size={20}
-                      color={TOKENS.textSecondary}
-                    />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.modalTitle}>Popkek</Text>
-                    <Text style={styles.modalSub}>Örnek sağlık analizi</Text>
-                  </View>
-                  <TouchableOpacity
-                    accessibilityRole="button"
-                    onPress={() => setAnalysisOpen(false)}
-                    activeOpacity={0.8}
-                    style={styles.closeButton}
-                  >
-                    <Ionicons name="close" size={18} color={TOKENS.textPrimary} />
-                  </TouchableOpacity>
-                </View>
-
-                <View style={styles.modalSection}>
-                  <Text style={styles.modalSectionTitle}>Riskli İçerikler</Text>
-                  <View style={styles.chipsRow}>
-                    <VariantChip variant="danger">Palmiye Yağı</VariantChip>
-                    <VariantChip variant="warning">Yüksek Şeker</VariantChip>
-                  </View>
-                </View>
-
-                <View style={styles.modalSection}>
-                  <Text style={styles.modalSectionTitle}>Temiz İçerikler</Text>
-                  <View style={styles.chipsRow}>
-                    <VariantChip variant="good">Doğal Aroma</VariantChip>
-                  </View>
-                </View>
-
-                <TouchableOpacity
-                  accessibilityRole="button"
-                  activeOpacity={0.9}
-                  style={styles.primaryInlineButton}
-                  onPress={() => setAnalysisOpen(false)}
-                >
-                  <Text style={styles.primaryInlineButtonText}>Kapat</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
-        </View>
-      </Modal>
+        product={analysisProduct}
+        onClose={() => setAnalysisOpen(false)}
+      />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  flex: { flex: 1 },
   safe: {
     flex: 1,
     backgroundColor: TOKENS.background,
   },
-  screen: {
+  appShell: {
     flex: 1,
   },
-  container: {
+
+  // Auth
+  authContainer: {
+    paddingHorizontal: 24,
+    paddingTop: 28,
+    paddingBottom: 32,
+    gap: 18,
+  },
+  authHeader: {
+    gap: 10,
+  },
+  authTitle: {
+    color: TOKENS.textPrimary,
+    fontSize: 30,
+    fontWeight: "800",
+    letterSpacing: -0.4,
+  },
+  authSubtitle: {
+    color: TOKENS.textSecondary,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  inputLabel: {
+    color: TOKENS.textPrimary,
+    fontSize: 13,
+    fontWeight: "700",
+    marginBottom: 8,
+  },
+  inputWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderRadius: 16,
+    backgroundColor: "rgba(100, 116, 139, 0.08)",
+  },
+  input: {
+    flex: 1,
+    color: TOKENS.textPrimary,
+    fontSize: 15,
+    paddingVertical: 0,
+  },
+  authFootnote: {
+    color: TOKENS.textSecondary,
+    fontSize: 12,
+    lineHeight: 17,
+    textAlign: "center",
+    paddingTop: 2,
+  },
+
+  // Global header and spacing
+  screenContainer: {
     paddingHorizontal: 24,
     paddingTop: 24,
-    paddingBottom: 110,
+    paddingBottom: 118,
   },
   header: {
     gap: 8,
@@ -294,50 +677,6 @@ const styles = StyleSheet.create({
     color: TOKENS.textSecondary,
     fontSize: 15,
     lineHeight: 21,
-  },
-  ctaWrap: {
-    paddingTop: 24,
-    paddingBottom: 32,
-    alignItems: "center",
-  },
-  ctaButton: {
-    width: "100%",
-    borderRadius: 24,
-    backgroundColor: TOKENS.primary,
-    paddingVertical: 18,
-    paddingHorizontal: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    ...Platform.select({
-      ios: {
-        shadowColor: "rgba(0, 0, 0, 0.04)",
-        shadowOpacity: 1,
-        shadowRadius: 20,
-        shadowOffset: { width: 0, height: 4 },
-      },
-      android: {
-        elevation: 5,
-      },
-    }),
-  },
-  ctaInner: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  ctaIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 999,
-    backgroundColor: "rgba(255, 255, 255, 0.18)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  ctaText: {
-    color: TOKENS.surface,
-    fontSize: 16,
-    fontWeight: "700",
-    letterSpacing: 0.2,
   },
   sectionHeader: {
     gap: 4,
@@ -354,15 +693,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
   },
-  horizontalList: {
-    paddingRight: 24,
-    gap: 12,
-  },
-  card: {
-    width: 230,
+
+  // Cards & shadows (premium dashboard)
+  cardBase: {
     backgroundColor: TOKENS.surface,
     borderRadius: 16,
-    padding: 16,
     ...Platform.select({
       ios: {
         shadowColor: "rgba(0, 0, 0, 0.04)",
@@ -371,19 +706,70 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 4 },
       },
       android: {
-        elevation: 4,
+        elevation: 6,
       },
     }),
   },
-  cardTopRow: {
+
+  // Buttons
+  primaryButton: {
+    width: "100%",
+    borderRadius: 24,
+    backgroundColor: TOKENS.primary,
+    paddingVertical: 18,
+    paddingHorizontal: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    ...Platform.select({
+      ios: {
+        shadowColor: "rgba(0, 0, 0, 0.04)",
+        shadowOpacity: 1,
+        shadowRadius: 20,
+        shadowOffset: { width: 0, height: 4 },
+      },
+      android: {
+        elevation: 7,
+      },
+    }),
+  },
+  primaryButtonInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  primaryButtonIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 999,
+    backgroundColor: "rgba(255, 255, 255, 0.18)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  primaryButtonText: {
+    color: TOKENS.surface,
+    fontSize: 16,
+    fontWeight: "800",
+    letterSpacing: 0.2,
+  },
+
+  // Home recent cards
+  horizontalList: {
+    paddingRight: 24,
+    gap: 12,
+  },
+  recentCard: {
+    width: 240,
+    padding: 16,
+  },
+  recentTopRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingBottom: 14,
   },
   thumb: {
-    width: 44,
-    height: 44,
+    width: 46,
+    height: 46,
     borderRadius: 14,
     backgroundColor: "rgba(5, 150, 105, 0.10)",
     alignItems: "center",
@@ -395,6 +781,12 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     lineHeight: 22,
   },
+  cardMeta: {
+    color: TOKENS.textSecondary,
+    fontSize: 13,
+    lineHeight: 18,
+    paddingTop: 6,
+  },
   scorePill: {
     alignSelf: "flex-start",
     paddingVertical: 8,
@@ -403,15 +795,10 @@ const styles = StyleSheet.create({
   },
   scorePillText: {
     fontSize: 13,
-    fontWeight: "700",
-  },
-  cardMeta: {
-    color: TOKENS.textSecondary,
-    fontSize: 13,
-    lineHeight: 18,
-    paddingTop: 6,
+    fontWeight: "800",
   },
 
+  // Tabs
   tabBar: {
     position: "absolute",
     left: 16,
@@ -431,7 +818,7 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 4 },
       },
       android: {
-        elevation: 6,
+        elevation: 10,
       },
     }),
   },
@@ -444,9 +831,89 @@ const styles = StyleSheet.create({
   },
   tabLabel: {
     fontSize: 12,
-    fontWeight: "600",
+    fontWeight: "700",
   },
 
+  // History weekly card + list
+  weeklyCard: {
+    padding: 18,
+  },
+  weeklyTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingBottom: 14,
+  },
+  weeklyLabel: {
+    color: TOKENS.textSecondary,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: "600",
+  },
+  weeklyScore: {
+    color: TOKENS.textPrimary,
+    fontSize: 34,
+    fontWeight: "800",
+    letterSpacing: -0.4,
+    paddingTop: 4,
+  },
+  progressTrack: {
+    height: 10,
+    borderRadius: 999,
+    backgroundColor: "rgba(100, 116, 139, 0.12)",
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: 10,
+    borderRadius: 999,
+  },
+  weeklyHint: {
+    color: TOKENS.textSecondary,
+    fontSize: 12,
+    lineHeight: 17,
+    paddingTop: 12,
+  },
+  historyRow: {
+    padding: 14,
+    borderRadius: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  historyIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: "rgba(5, 150, 105, 0.10)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  historyTitle: {
+    color: TOKENS.textPrimary,
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  historySub: {
+    color: TOKENS.textSecondary,
+    fontSize: 12,
+    lineHeight: 16,
+    paddingTop: 2,
+  },
+
+  // Chips
+  chip: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 999,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  chipText: {
+    fontSize: 13,
+    fontWeight: "800",
+  },
+
+  // Analysis modal
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(15, 23, 42, 0.35)",
@@ -465,7 +932,7 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 4 },
       },
       android: {
-        elevation: 8,
+        elevation: 12,
       },
     }),
   },
@@ -501,7 +968,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     color: TOKENS.textPrimary,
     fontSize: 18,
-    fontWeight: "700",
+    fontWeight: "800",
     letterSpacing: -0.1,
   },
   modalSub: {
@@ -516,28 +983,34 @@ const styles = StyleSheet.create({
   modalSectionTitle: {
     color: TOKENS.textPrimary,
     fontSize: 14,
-    fontWeight: "700",
+    fontWeight: "800",
   },
   chipsRow: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 10,
   },
-  chip: {
+
+  // Camera modal
+  cameraTopBar: {
+    paddingHorizontal: 16,
+    paddingTop: 6,
+    paddingBottom: 12,
+    backgroundColor: TOKENS.background,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  cameraTitle: {
+    color: TOKENS.textPrimary,
+    fontSize: 16,
+    fontWeight: "800",
+  },
+  cameraClose: {
+    width: 36,
+    height: 36,
     borderRadius: 999,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-  },
-  chipText: {
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  primaryInlineButton: {
-    marginTop: 2,
-    width: "100%",
-    borderRadius: 16,
-    backgroundColor: TOKENS.primary,
-    paddingVertical: 14,
+    backgroundColor: TOKENS.surface,
     alignItems: "center",
     justifyContent: "center",
     ...Platform.select({
@@ -548,15 +1021,71 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 4 },
       },
       android: {
-        elevation: 4,
+        elevation: 8,
       },
     }),
   },
-  primaryInlineButtonText: {
-    color: TOKENS.surface,
-    fontSize: 14,
-    fontWeight: "700",
-    letterSpacing: 0.2,
+  cameraStage: {
+    flex: 1,
+    backgroundColor: "#000000",
   },
-});  
+  camera: {
+    flex: 1,
+  },
+  scanOverlay: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 16,
+  },
+  scanFrame: {
+    width: 260,
+    height: 170,
+    borderRadius: 24,
+    borderWidth: 2,
+    borderColor: "rgba(255, 255, 255, 0.80)",
+    backgroundColor: "rgba(0, 0, 0, 0.25)",
+  },
+  scanHint: {
+    color: "rgba(255, 255, 255, 0.85)",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  cameraBottom: {
+    backgroundColor: TOKENS.background,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 18,
+    gap: 10,
+  },
+  cameraBottomHint: {
+    color: TOKENS.textSecondary,
+    fontSize: 12,
+    lineHeight: 16,
+    textAlign: "center",
+  },
+  cameraPermission: {
+    flex: 1,
+    backgroundColor: TOKENS.background,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 24,
+  },
+  cameraPermissionTitle: {
+    color: TOKENS.textPrimary,
+    fontSize: 18,
+    fontWeight: "800",
+  },
+  cameraPermissionSub: {
+    color: TOKENS.textSecondary,
+    fontSize: 13,
+    lineHeight: 18,
+    textAlign: "center",
+    paddingTop: 10,
+  },
+});
 
