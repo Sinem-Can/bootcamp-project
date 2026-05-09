@@ -325,7 +325,108 @@ function AnalysisModal({ visible, onClose, product }) {
   );
 }
 
-function HomeScreen({ onOpenCamera, recent }) {
+function ProductDetailModal({ visible, product, onClose }) {
+  const score = product?.score ?? 0;
+  const variant = getScoreVariant(score);
+  const vc = getVariantColors(variant);
+
+  const items = useMemo(() => {
+    const base = [{ variant: "good", text: "Palmiye Yağı Yok" }];
+    if (score < 45) {
+      return [
+        ...base,
+        { variant: "danger", text: "Yüksek Şeker" },
+        { variant: "danger", text: "Katkı Profili Riskli" },
+        { variant: "warning", text: "Dikkatli Tüketim Önerilir" },
+      ];
+    }
+    if (score < 75) {
+      return [
+        ...base,
+        { variant: "warning", text: "Şeker Oranı Orta" },
+        { variant: "warning", text: "Katkı Maddesi Dikkat" },
+        { variant: "good", text: "Aroma Profili Uygun" },
+      ];
+    }
+    return [
+      ...base,
+      { variant: "good", text: "Şeker Oranı Düşük" },
+      { variant: "good", text: "Katkı Profili Temiz" },
+      { variant: "good", text: "Tuz Oranı Dengeli" },
+    ];
+  }, [score]);
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalCard}>
+          <View style={styles.resultHeader}>
+            <View style={styles.resultThumb}>
+              <Ionicons
+                name="fast-food-outline"
+                size={20}
+                color={TOKENS.textSecondary}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.modalTitle}>{product?.name ?? "Ürün"}</Text>
+              <Text style={styles.modalSub}>Detaylı sağlık özeti</Text>
+            </View>
+            <TouchableOpacity
+              accessibilityRole="button"
+              onPress={onClose}
+              activeOpacity={0.85}
+              style={styles.closeButton}
+            >
+              <Ionicons name="close" size={18} color={TOKENS.textPrimary} />
+            </TouchableOpacity>
+          </View>
+
+          <View style={{ paddingTop: 14, gap: 10 }}>
+            <Text style={styles.modalSectionTitle}>Sağlık Skoru</Text>
+            <View style={[styles.scorePill, { backgroundColor: vc.tint }]}>
+              <Text style={[styles.scorePillText, { color: vc.text }]}>
+                {score}/100
+              </Text>
+            </View>
+          </View>
+
+          <View style={{ paddingTop: 16, gap: 10 }}>
+            <Text style={styles.modalSectionTitle}>İçerik Analizi</Text>
+            <View style={styles.chipsRow}>
+              {items.map((it, idx) => (
+                <VariantChip
+                  key={`${it.text}-${idx}`}
+                  variant={it.variant}
+                  icon={
+                    it.variant === "good"
+                      ? "checkmark-circle-outline"
+                      : it.variant === "warning"
+                      ? "alert-circle-outline"
+                      : "warning-outline"
+                  }
+                >
+                  {it.text}
+                </VariantChip>
+              ))}
+            </View>
+          </View>
+
+          <View style={{ paddingTop: 18 }}>
+            <PrimaryButton label="Kapat" icon="close-outline" onPress={onClose} />
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function HomeScreen({ onOpenCamera, recent, onOpenProduct, weeklySummary }) {
   return (
     <ScrollView
       contentContainerStyle={styles.screenContainer}
@@ -356,29 +457,94 @@ function HomeScreen({ onOpenCamera, recent }) {
           const variant = getScoreVariant(item.score);
           const c = getVariantColors(variant);
           return (
-            <PremiumCard key={item.id} style={styles.recentCard}>
-              <View style={styles.recentTopRow}>
-                <View style={styles.thumb}>
-                  <Ionicons
-                    name="fast-food-outline"
-                    size={18}
-                    color={TOKENS.textSecondary}
-                  />
+            <TouchableOpacity
+              key={item.id}
+              accessibilityRole="button"
+              activeOpacity={0.9}
+              onPress={() => onOpenProduct(item)}
+            >
+              <PremiumCard style={styles.recentCard}>
+                <View style={styles.recentTopRow}>
+                  <View style={styles.thumb}>
+                    <Ionicons
+                      name="fast-food-outline"
+                      size={18}
+                      color={TOKENS.textSecondary}
+                    />
+                  </View>
+                  <View style={[styles.scorePill, { backgroundColor: c.tint }]}>
+                    <Text style={[styles.scorePillText, { color: c.text }]}>
+                      {item.score}/100
+                    </Text>
+                  </View>
                 </View>
-                <View style={[styles.scorePill, { backgroundColor: c.tint }]}>
-                  <Text style={[styles.scorePillText, { color: c.text }]}>
-                    {item.score}/100
-                  </Text>
-                </View>
-              </View>
-              <Text style={styles.cardTitle} numberOfLines={2}>
-                {item.name}
-              </Text>
-              <Text style={styles.cardMeta}>{item.date}</Text>
-            </PremiumCard>
+                <Text style={styles.cardTitle} numberOfLines={2}>
+                  {item.name}
+                </Text>
+                <Text style={styles.cardMeta}>{item.date}</Text>
+              </PremiumCard>
+            </TouchableOpacity>
           );
         })}
       </ScrollView>
+
+      <View style={{ paddingTop: 18 }}>
+        <PremiumCard style={styles.homeWeeklyCard}>
+          <View style={styles.homeWeeklyTop}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.homeWeeklyTitle}>Haftalık Sağlık Analizin</Text>
+              <Text style={styles.homeWeeklySub}>
+                Bu hafta {weeklySummary.total} ürün tarandı
+              </Text>
+            </View>
+            <Ionicons
+              name="bar-chart-outline"
+              size={20}
+              color={TOKENS.textSecondary}
+            />
+          </View>
+
+          <View style={styles.homeWeeklyStats}>
+            <View style={styles.homeWeeklyStatItem}>
+              <View
+                style={[
+                  styles.dot,
+                  { backgroundColor: TOKENS.primary },
+                ]}
+              />
+              <Text style={styles.homeWeeklyStatLabel}>Temiz</Text>
+              <Text style={styles.homeWeeklyStatValue}>
+                {weeklySummary.clean}
+              </Text>
+            </View>
+            <View style={styles.homeWeeklyStatItem}>
+              <View style={[styles.dot, { backgroundColor: TOKENS.danger }]} />
+              <Text style={styles.homeWeeklyStatLabel}>Riskli</Text>
+              <Text style={styles.homeWeeklyStatValue}>
+                {weeklySummary.risky}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.segmentTrack}>
+            <View
+              style={[
+                styles.segmentFill,
+                { flex: weeklySummary.cleanRatio, backgroundColor: TOKENS.primary },
+              ]}
+            />
+            <View
+              style={[
+                styles.segmentFill,
+                {
+                  flex: 1 - weeklySummary.cleanRatio,
+                  backgroundColor: TOKENS.danger,
+                },
+              ]}
+            />
+          </View>
+        </PremiumCard>
+      </View>
     </ScrollView>
   );
 }
@@ -539,11 +705,25 @@ export default function App() {
     []
   );
 
+  const weeklySummary = useMemo(() => {
+    const clean = history.filter((h) => getScoreVariant(h.score) === "good").length;
+    const risky = history.filter((h) => getScoreVariant(h.score) !== "good").length;
+    const total = Math.max(1, clean + risky);
+    return {
+      clean,
+      risky,
+      total: clean + risky,
+      cleanRatio: clean / total,
+    };
+  }, [history]);
+
   const [session, setSession] = useState({ isAuthed: false, email: "" });
   const [activeTab, setActiveTab] = useState("home");
   const [cameraOpen, setCameraOpen] = useState(false);
   const [analysisOpen, setAnalysisOpen] = useState(false);
   const [analysisProduct, setAnalysisProduct] = useState(null);
+  const [productDetailOpen, setProductDetailOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState(null);
 
   const openAnalysisFor = (product) => {
     setAnalysisProduct(product ?? { name: "Popkek" });
@@ -566,6 +746,11 @@ export default function App() {
             <HomeScreen
               recent={history.slice(0, 4)}
               onOpenCamera={() => setCameraOpen(true)}
+              weeklySummary={weeklySummary}
+              onOpenProduct={(p) => {
+                setSelectedProduct(p);
+                setProductDetailOpen(true);
+              }}
             />
           ) : null}
           {activeTab === "history" ? <HistoryScreen history={history} /> : null}
@@ -593,6 +778,12 @@ export default function App() {
         visible={analysisOpen}
         product={analysisProduct}
         onClose={() => setAnalysisOpen(false)}
+      />
+
+      <ProductDetailModal
+        visible={productDetailOpen}
+        product={selectedProduct}
+        onClose={() => setProductDetailOpen(false)}
       />
     </SafeAreaView>
   );
@@ -706,7 +897,7 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 4 },
       },
       android: {
-        elevation: 6,
+        elevation: 3,
       },
     }),
   },
@@ -796,6 +987,70 @@ const styles = StyleSheet.create({
   scorePillText: {
     fontSize: 13,
     fontWeight: "800",
+  },
+
+  homeWeeklyCard: {
+    padding: 18,
+    borderRadius: 24,
+    ...Platform.select({
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  homeWeeklyTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingBottom: 14,
+    gap: 12,
+  },
+  homeWeeklyTitle: {
+    color: TOKENS.textPrimary,
+    fontSize: 16,
+    fontWeight: "800",
+    letterSpacing: -0.1,
+  },
+  homeWeeklySub: {
+    color: TOKENS.textSecondary,
+    fontSize: 12,
+    lineHeight: 16,
+    paddingTop: 6,
+  },
+  homeWeeklyStats: {
+    flexDirection: "row",
+    gap: 16,
+    paddingBottom: 12,
+  },
+  homeWeeklyStatItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  homeWeeklyStatLabel: {
+    color: TOKENS.textSecondary,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  homeWeeklyStatValue: {
+    color: TOKENS.textPrimary,
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  dot: {
+    width: 10,
+    height: 10,
+    borderRadius: 999,
+  },
+  segmentTrack: {
+    height: 10,
+    borderRadius: 999,
+    overflow: "hidden",
+    flexDirection: "row",
+    backgroundColor: "rgba(100, 116, 139, 0.12)",
+  },
+  segmentFill: {
+    height: 10,
   },
 
   // Tabs
