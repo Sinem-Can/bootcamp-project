@@ -342,11 +342,19 @@ function PrimaryButton({ label, icon, onPress, style }) {
   );
 }
 
-function LoginScreen({ onLogin }) {
+function LoginScreen({ onAuthSuccess }) {
+  const [mode, setMode] = useState("login"); // login | register
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
 
-  const canLogin = email.trim().length > 2 && password.trim().length > 2;
+  const canSubmitLogin =
+    email.trim().length > 2 && password.trim().length > 2;
+  const canSubmitRegister =
+    canSubmitLogin && fullName.trim().length > 1;
+  const canSubmit = mode === "login" ? canSubmitLogin : canSubmitRegister;
+
+  const isLogin = mode === "login";
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -362,12 +370,46 @@ function LoginScreen({ onLogin }) {
           <View style={styles.authHeader}>
             <Text style={styles.authTitle}>TemizSepet</Text>
             <Text style={styles.authSubtitle}>
-              Premium analiz deneyimi için giriş yap
+              {isLogin
+                ? "Hesabınla içerik analizine ve haftalık özetine devam et."
+                : "Dakikalar içinde hesap oluştur; taramaların ve özetin seninle kalsın."}
             </Text>
           </View>
 
           <PremiumCard style={{ padding: 18, borderRadius: 24 }}>
-            <Text style={styles.inputLabel}>Email</Text>
+            <Text style={styles.authCardTitle}>
+              {isLogin ? "Giriş Yap" : "Kayıt Ol"}
+            </Text>
+
+            {!isLogin ? (
+              <>
+                <Text style={styles.inputLabel}>Ad Soyad</Text>
+                <View style={styles.inputWrap}>
+                  <Ionicons
+                    name="person-outline"
+                    size={18}
+                    color={TOKENS.textSecondary}
+                  />
+                  <TextInput
+                    value={fullName}
+                    onChangeText={setFullName}
+                    placeholder="Adınız Soyadınız"
+                    placeholderTextColor={TOKENS.textSecondary}
+                    autoCapitalize="words"
+                    style={styles.input}
+                  />
+                </View>
+              </>
+            ) : null}
+
+            <Text
+              style={[
+                styles.inputLabel,
+                !isLogin ? { marginTop: 14 } : { marginTop: 0 },
+              ]}
+            >
+              E-posta
+            </Text>
             <View style={styles.inputWrap}>
               <Ionicons
                 name="mail-outline"
@@ -403,15 +445,45 @@ function LoginScreen({ onLogin }) {
             </View>
 
             <PrimaryButton
-              label="Giriş Yap"
-              icon="log-in-outline"
-              style={{ marginTop: 18, opacity: canLogin ? 1 : 0.6 }}
+              label={isLogin ? "Giriş Yap" : "Kayıt Ol"}
+              icon={isLogin ? "log-in-outline" : "person-add-outline"}
+              style={{ marginTop: 18, opacity: canSubmit ? 1 : 0.6 }}
               onPress={() => {
-                if (!canLogin) return;
-                onLogin({ email });
+                if (!canSubmit) return;
+                if (isLogin) {
+                  onAuthSuccess({ email, displayName: "" });
+                } else {
+                  onAuthSuccess({
+                    email,
+                    displayName: fullName.trim(),
+                  });
+                }
               }}
             />
           </PremiumCard>
+
+          <TouchableOpacity
+            accessibilityRole="button"
+            activeOpacity={0.85}
+            style={styles.authModeSwitch}
+            onPress={() => {
+              setMode(isLogin ? "register" : "login");
+            }}
+          >
+            <Text style={styles.authModeSwitchText}>
+              {isLogin ? (
+                <>
+                  <Text style={styles.authModeSwitchMuted}>Hesabın yok mu? </Text>
+                  <Text style={styles.authModeSwitchAccent}>Kayıt Ol</Text>
+                </>
+              ) : (
+                <>
+                  <Text style={styles.authModeSwitchMuted}>Zaten üye misin? </Text>
+                  <Text style={styles.authModeSwitchAccent}>Giriş Yap</Text>
+                </>
+              )}
+            </Text>
+          </TouchableOpacity>
 
           <Text style={styles.authFootnote}>
             Oturum bilgileriniz cihazınızda güvenli şekilde saklanır; hesabınıza yalnızca siz
@@ -679,6 +751,7 @@ function HomeScreen({
   onOpenProduct,
   weeklySummary,
   onPickCategory,
+  userName,
 }) {
   const maxBar = Math.max(
     weeklySummary.green,
@@ -706,7 +779,7 @@ function HomeScreen({
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.header}>
-        <Text style={styles.title}>Hoş geldin, Sinem</Text>
+        <Text style={styles.title}>Hoş geldin, {userName}</Text>
         <Text style={styles.subtitle}>
           Bugün sağlığın için ne taramak istersin?
         </Text>
@@ -849,8 +922,9 @@ function HomeScreen({
   );
 }
 
-function HistoryScreen({ history, onOpenProduct }) {
-  const weeklyScore = 78;
+function HistoryScreen({ history, onOpenProduct, weeklySummary }) {
+  const n = history.length;
+  const weeklyScore = n > 0 ? weeklySummary.averageScore : 0;
   const weeklyVariant = getScoreVariant(weeklyScore);
   const c = getVariantColors(weeklyVariant);
 
@@ -891,9 +965,26 @@ function HistoryScreen({ history, onOpenProduct }) {
             />
           </View>
           <Text style={styles.weeklyHint}>
-            Haftalık puanınız; taradığınız ürünlerdeki içerik riskleri ile şeker, yağ ve katkı dengesi
-            dikkate alınarak hesaplanır.
+            Bu puan, geçmişteki {weeklySummary.total} taramanızın ortalama sağlık skorundan türetilir;
+            yeni tarama ekledikçe güncellenir.
           </Text>
+          <View style={styles.weeklyMiniRow}>
+            <View style={styles.weeklyMiniItem}>
+              <View style={[styles.dot, { backgroundColor: TOKENS.primary }]} />
+              <Text style={styles.weeklyMiniLabel}>Yeşil</Text>
+              <Text style={styles.weeklyMiniValue}>{weeklySummary.green}</Text>
+            </View>
+            <View style={styles.weeklyMiniItem}>
+              <View style={[styles.dot, { backgroundColor: TOKENS.warning }]} />
+              <Text style={styles.weeklyMiniLabel}>Sarı</Text>
+              <Text style={styles.weeklyMiniValue}>{weeklySummary.yellow}</Text>
+            </View>
+            <View style={styles.weeklyMiniItem}>
+              <View style={[styles.dot, { backgroundColor: TOKENS.danger }]} />
+              <Text style={styles.weeklyMiniLabel}>Kırmızı</Text>
+              <Text style={styles.weeklyMiniValue}>{weeklySummary.red}</Text>
+            </View>
+          </View>
         </PremiumCard>
       </View>
 
@@ -1016,15 +1107,23 @@ export default function App() {
     const yellow = historyList.filter((h) => getScoreVariant(h.score) === "warning").length;
     const red = historyList.filter((h) => getScoreVariant(h.score) === "danger").length;
     const total = green + yellow + red;
+    const sumScores = historyList.reduce((acc, h) => acc + (h.score ?? 0), 0);
+    const averageScore =
+      total > 0 ? Math.min(100, Math.max(0, Math.round(sumScores / total))) : 0;
     return {
       green,
       yellow,
       red,
       total,
+      averageScore,
     };
   }, [historyList]);
 
-  const [session, setSession] = useState({ isAuthed: false, email: "" });
+  const [session, setSession] = useState({
+    isAuthed: false,
+    email: "",
+    displayName: "",
+  });
   const [activeTab, setActiveTab] = useState("home");
   const [cameraOpen, setCameraOpen] = useState(false);
   const [productDetailOpen, setProductDetailOpen] = useState(false);
@@ -1047,10 +1146,22 @@ export default function App() {
     setProductDetailOpen(true);
   };
 
+  const greetingName =
+    session.displayName?.trim() ||
+    (session.email && session.email.includes("@")
+      ? session.email.split("@")[0]
+      : "Sen");
+
   if (!session.isAuthed) {
     return (
       <LoginScreen
-        onLogin={({ email }) => setSession({ isAuthed: true, email })}
+        onAuthSuccess={({ email, displayName }) =>
+          setSession({
+            isAuthed: true,
+            email: email.trim(),
+            displayName: (displayName || "").trim(),
+          })
+        }
       />
     );
   }
@@ -1064,6 +1175,7 @@ export default function App() {
               recent={historyList.slice(0, 4)}
               onOpenCamera={() => setCameraOpen(true)}
               weeklySummary={weeklySummary}
+              userName={greetingName}
               onPickCategory={() => setCameraOpen(true)}
               onOpenProduct={(p) => {
                 setSelectedProduct(p);
@@ -1074,6 +1186,7 @@ export default function App() {
           {activeTab === "history" ? (
             <HistoryScreen
               history={historyList}
+              weeklySummary={weeklySummary}
               onOpenProduct={(p) => {
                 setSelectedProduct(p);
                 setProductDetailOpen(true);
@@ -1083,7 +1196,9 @@ export default function App() {
           {activeTab === "profile" ? (
             <ProfileScreen
               userEmail={session.email}
-              onLogout={() => setSession({ isAuthed: false, email: "" })}
+              onLogout={() =>
+                setSession({ isAuthed: false, email: "", displayName: "" })
+              }
             />
           ) : null}
         </View>
@@ -1129,6 +1244,13 @@ const styles = StyleSheet.create({
   authHeader: {
     gap: 10,
   },
+  authCardTitle: {
+    color: TOKENS.textPrimary,
+    fontSize: 17,
+    fontWeight: "800",
+    letterSpacing: -0.2,
+    marginBottom: 14,
+  },
   authTitle: {
     color: TOKENS.textPrimary,
     fontSize: 30,
@@ -1167,6 +1289,24 @@ const styles = StyleSheet.create({
     lineHeight: 17,
     textAlign: "center",
     paddingTop: 2,
+  },
+  authModeSwitch: {
+    alignSelf: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+  },
+  authModeSwitchText: {
+    textAlign: "center",
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  authModeSwitchMuted: {
+    color: TOKENS.textSecondary,
+    fontWeight: "600",
+  },
+  authModeSwitchAccent: {
+    color: TOKENS.primary,
+    fontWeight: "800",
   },
 
   // Global header and spacing
@@ -1511,6 +1651,27 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 17,
     paddingTop: 12,
+  },
+  weeklyMiniRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 14,
+    paddingTop: 14,
+  },
+  weeklyMiniItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  weeklyMiniLabel: {
+    color: TOKENS.textSecondary,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  weeklyMiniValue: {
+    color: TOKENS.textPrimary,
+    fontSize: 13,
+    fontWeight: "800",
   },
   historyRow: {
     padding: 18,
