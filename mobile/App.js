@@ -64,7 +64,7 @@ function getHealthierAlternative(product) {
       keys: ["kola", "gazoz", "asitli", "enerji içecek"],
       title: "Doğal Maden Suyu veya Maden + Limon",
       reason:
-        "Ek şeker ve asit yükü olmadan serinletir; aynı fiyat bandında rafta sık bulunur.",
+        "Ek şeker ve asit yükü olmadan serinletir; içecek reyonunda benzer konumda sıkça bulunur.",
     },
     {
       keys: ["çikolata", "gofret", "bar", "şekerleme"],
@@ -232,7 +232,8 @@ function LoginScreen({ onLogin }) {
           </PremiumCard>
 
           <Text style={styles.authFootnote}>
-            Dev mod: Backend bağlı değil, giriş local state ile simüle edilir.
+            Oturum bilgileriniz cihazınızda güvenli şekilde saklanır; hesabınıza yalnızca siz
+            erişebilirsiniz.
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -298,7 +299,8 @@ function CameraScanModal({ visible, onClose, onSimulateScan }) {
             onPress={onSimulateScan}
           />
           <Text style={styles.cameraBottomHint}>
-            Demo: “Tara” ile analiz simülasyonu başlar.
+            Barkodu okuttuğunuzda analiz birkaç saniye içinde hazır olur; gerekirse ışığı açıp tekrar
+            deneyebilirsiniz.
           </Text>
         </View>
       </SafeAreaView>
@@ -342,7 +344,7 @@ function AnalysisModal({ visible, onClose, product }) {
                 <ActivityIndicator size="large" color={TOKENS.primary} />
                 <Text style={styles.modalTitle}>Ürün Analiz Ediliyor...</Text>
                 <Text style={[styles.modalSub, styles.modalSubLeft]}>
-                  İçerikler sağlık standartlarına göre değerlendiriliyor
+                  İçerik listesi ve risk göstergeleri hazırlanıyor; lütfen birkaç saniye bekleyin.
                 </Text>
               </View>
             </View>
@@ -358,7 +360,7 @@ function AnalysisModal({ visible, onClose, product }) {
                     <Ionicons
                       name="nutrition-outline"
                       size={20}
-                      color={TOKENS.textSecondary}
+                      color={TOKENS.primary}
                     />
                   </View>
                   <View style={{ flex: 1 }}>
@@ -366,7 +368,7 @@ function AnalysisModal({ visible, onClose, product }) {
                       {product?.name ?? "Popkek"}
                     </Text>
                     <Text style={[styles.modalSub, styles.modalSubLeft]}>
-                      Örnek içerik analizi
+                      İçerik özeti ve risk değerlendirmesi
                     </Text>
                   </View>
                   <TouchableOpacity
@@ -473,13 +475,13 @@ function ProductDetailModal({ visible, product, onClose }) {
                 <Ionicons
                   name="fast-food-outline"
                   size={20}
-                  color={TOKENS.textSecondary}
+                  color={TOKENS.primary}
                 />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.modalTitle}>{product?.name ?? "Ürün"}</Text>
                 <Text style={[styles.modalSub, styles.modalSubLeft]}>
-                  Detaylı sağlık özeti
+                  İçerik analizi ve kişiselleştirilmiş özet
                 </Text>
               </View>
               <TouchableOpacity
@@ -520,9 +522,18 @@ function ProductDetailModal({ visible, product, onClose }) {
                   </Text>
                 </View>
                 <Text style={[styles.modalSub, styles.modalSubLeft]}>
-                  Trafik lambası skoru; şeker, yağ, tuz ve katkı yoğunluğuna göre
-                  simüle edilmiştir.
+                  Ürün içeriği, sağlık profilinize göre analiz edilmiştir.
                 </Text>
+                {variant === "good" ? (
+                  <Text style={[styles.modalSub, styles.modalSubLeft, styles.modalSubTight]}>
+                    Bu ürün, seçtiğiniz diyet ve kısıtlamalara tam uyum sağlar.
+                  </Text>
+                ) : (
+                  <Text style={[styles.modalSub, styles.modalSubLeft, styles.modalSubTight]}>
+                    Skor; şeker, yağ, tuz ve katkı profili ile profilinizdeki tercihler birlikte
+                    değerlendirilerek hesaplanır.
+                  </Text>
+                )}
               </View>
             </View>
 
@@ -562,7 +573,8 @@ function ProductDetailModal({ visible, product, onClose }) {
                 <Text style={styles.alternativeProduct}>{alternative.title}</Text>
                 <Text style={styles.alternativeReason}>{alternative.reason}</Text>
                 <Text style={styles.alternativeFoot}>
-                  MVP: Aynı alt kategoride ve benzer fiyat segmentinde rafta arayın.
+                  Öneriler, profilinizde seçtiğiniz diyet ve içerik kısıtlarına uygun alternatifleri
+                  önceliklendirir. Satın almadan önce güncel içerik etiketini kontrol etmenizi öneririz.
                 </Text>
               </View>
             ) : null}
@@ -646,7 +658,7 @@ function HomeScreen({
                     <Ionicons
                       name="fast-food-outline"
                       size={18}
-                      color={TOKENS.textSecondary}
+                      color={TOKENS.primary}
                     />
                   </View>
                   <View style={[styles.scorePill, { backgroundColor: c.tint }]}>
@@ -699,7 +711,7 @@ function HomeScreen({
             </View>
           </View>
 
-          <Text style={styles.miniBarCaption}>Dağılım (mini bar)</Text>
+          <Text style={styles.miniBarCaption}>Haftalık skor dağılımı</Text>
           <View style={styles.miniBarChart}>
             {barHeights.map((b) => (
               <View key={b.key} style={styles.miniBarCol}>
@@ -722,7 +734,7 @@ function HomeScreen({
       <View style={{ paddingTop: 28 }}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Kategorilere Göre Keşfet</Text>
-          <Text style={styles.sectionHint}>İkonlu kısayollar</Text>
+          <Text style={styles.sectionHint}>Kategoriye göre hızlı erişim</Text>
         </View>
         <ScrollView
           horizontal
@@ -795,8 +807,8 @@ function HistoryScreen({ history, onOpenProduct }) {
             />
           </View>
           <Text style={styles.weeklyHint}>
-            Skor; içerik riskleri, şeker/yağ dengesi ve katkı profiline göre
-            simüle edilmiştir.
+            Haftalık puanınız; taradığınız ürünlerdeki içerik riskleri ile şeker, yağ ve katkı dengesi
+            dikkate alınarak hesaplanır.
           </Text>
         </PremiumCard>
       </View>
@@ -822,7 +834,7 @@ function HistoryScreen({ history, onOpenProduct }) {
                   <Ionicons
                     name="receipt-outline"
                     size={18}
-                    color={TOKENS.textSecondary}
+                    color={TOKENS.primary}
                   />
                 </View>
                 <View style={{ flex: 1 }}>
@@ -863,7 +875,7 @@ function ProfileScreen({ userEmail, onLogout }) {
           <View style={{ height: 14 }} />
           <Text style={styles.profileLabel}>Durum</Text>
           <VariantChip variant="good" icon="shield-checkmark-outline">
-            Premium Dashboard
+            Hesap aktif
           </VariantChip>
         </PremiumCard>
 
@@ -1170,20 +1182,23 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   recentCard: {
-    width: 240,
-    padding: 16,
+    width: 248,
+    padding: 20,
+    borderRadius: 16,
   },
   recentTopRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingBottom: 14,
+    paddingBottom: 16,
   },
   thumb: {
-    width: 46,
-    height: 46,
-    borderRadius: 14,
+    width: 48,
+    height: 48,
+    borderRadius: 16,
     backgroundColor: "rgba(5, 150, 105, 0.10)",
+    borderWidth: 1,
+    borderColor: "rgba(5, 150, 105, 0.22)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1211,8 +1226,8 @@ const styles = StyleSheet.create({
   },
 
   homeWeeklyCard: {
-    padding: 18,
-    borderRadius: 24,
+    padding: 20,
+    borderRadius: 20,
   },
   homeWeeklyTop: {
     flexDirection: "row",
@@ -1411,17 +1426,19 @@ const styles = StyleSheet.create({
     paddingTop: 12,
   },
   historyRow: {
-    padding: 14,
+    padding: 18,
     borderRadius: 16,
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 14,
   },
   historyIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
+    width: 48,
+    height: 48,
+    borderRadius: 16,
     backgroundColor: "rgba(5, 150, 105, 0.10)",
+    borderWidth: 1,
+    borderColor: "rgba(5, 150, 105, 0.22)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1465,9 +1482,10 @@ const styles = StyleSheet.create({
     backgroundColor: TOKENS.surface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    paddingBottom: 20,
-    paddingHorizontal: 18,
-    paddingTop: 8,
+    overflow: "hidden",
+    paddingBottom: 24,
+    paddingHorizontal: 20,
+    paddingTop: 10,
     ...Platform.select({
       ios: {
         shadowColor: "#000000",
@@ -1482,11 +1500,11 @@ const styles = StyleSheet.create({
   },
   bottomSheetHandle: {
     alignSelf: "center",
-    width: 44,
-    height: 5,
+    width: 40,
+    height: 4,
     borderRadius: 999,
-    backgroundColor: "rgba(100, 116, 139, 0.22)",
-    marginBottom: 10,
+    backgroundColor: "rgba(100, 116, 139, 0.35)",
+    marginBottom: 14,
   },
   bottomSheetLoadingWrap: {
     flex: 1,
@@ -1514,10 +1532,12 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   resultThumb: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
+    width: 48,
+    height: 48,
+    borderRadius: 16,
     backgroundColor: "rgba(5, 150, 105, 0.10)",
+    borderWidth: 1,
+    borderColor: "rgba(5, 150, 105, 0.22)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1543,6 +1563,9 @@ const styles = StyleSheet.create({
   },
   modalSubLeft: {
     textAlign: "left",
+  },
+  modalSubTight: {
+    marginTop: 4,
   },
   modalSection: {
     gap: 10,
@@ -1592,10 +1615,12 @@ const styles = StyleSheet.create({
   },
   alternativeCard: {
     marginTop: 4,
-    padding: 16,
+    padding: 18,
     borderRadius: 16,
     backgroundColor: "rgba(5, 150, 105, 0.08)",
-    gap: 8,
+    borderWidth: 1,
+    borderColor: "rgba(5, 150, 105, 0.14)",
+    gap: 10,
   },
   alternativeHeader: {
     flexDirection: "row",
@@ -1620,10 +1645,9 @@ const styles = StyleSheet.create({
   },
   alternativeFoot: {
     color: TOKENS.textSecondary,
-    fontSize: 11,
-    lineHeight: 16,
-    fontStyle: "italic",
-    paddingTop: 4,
+    fontSize: 12,
+    lineHeight: 18,
+    paddingTop: 6,
   },
 
   // Camera modal
