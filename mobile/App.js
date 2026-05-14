@@ -7,6 +7,7 @@ import {
   SafeAreaView,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -24,6 +25,9 @@ const TOKENS = {
   textPrimary: "#0F172A",
   textSecondary: "#64748B",
 };
+
+const SWITCH_TRACK_OFF = "rgba(100, 116, 139, 0.28)";
+const SWITCH_TRACK_ON = "rgba(5, 150, 105, 0.45)";
 
 const TAB_ITEMS = [
   { id: "home", label: "Home", icon: "home-outline" },
@@ -320,6 +324,29 @@ function VariantChip({ variant, children, icon }) {
 
 function PremiumCard({ children, style }) {
   return <View style={[styles.cardBase, style]}>{children}</View>;
+}
+
+function ScansEmptyState({ onPressCamera }) {
+  return (
+    <View style={styles.emptyStateBox}>
+      <View style={styles.emptyStateIconWrap}>
+        <Ionicons name="scan-circle-outline" size={48} color={TOKENS.textSecondary} />
+      </View>
+      <Text style={styles.emptyStateBody}>
+        Henüz tarama yapmadınız. İlk ürününüzü incelemek için kameraya tıklayın.
+      </Text>
+      <TouchableOpacity
+        style={styles.emptyStateCta}
+        onPress={onPressCamera}
+        activeOpacity={0.88}
+        accessibilityRole="button"
+        accessibilityLabel="Kamerayı aç"
+      >
+        <Ionicons name="camera-outline" size={20} color={TOKENS.primary} />
+        <Text style={styles.emptyStateCtaText}>Kamerayı aç</Text>
+      </TouchableOpacity>
+    </View>
+  );
 }
 
 function PrimaryButton({ label, icon, onPress, style }) {
@@ -791,48 +818,56 @@ function HomeScreen({
 
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Son Taramalar</Text>
-        <Text style={styles.sectionHint}>Son taradıkların — detay için dokun</Text>
+        <Text style={styles.sectionHint}>
+          {recent.length === 0
+            ? "Tarama ekledikçe burada görünür"
+            : "Son taradıkların — detay için dokun"}
+        </Text>
       </View>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.horizontalList}
-      >
-        {recent.map((item) => {
-          const variant = getScoreVariant(item.score);
-          const c = getVariantColors(variant);
-          return (
-            <TouchableOpacity
-              key={item.id}
-              accessibilityRole="button"
-              activeOpacity={0.9}
-              onPress={() => onOpenProduct(item)}
-            >
-              <PremiumCard style={styles.recentCard}>
-                <View style={styles.recentTopRow}>
-                  <View style={styles.thumb}>
-                    <Ionicons
-                      name="fast-food-outline"
-                      size={18}
-                      color={TOKENS.primary}
-                    />
+      {recent.length === 0 ? (
+        <ScansEmptyState onPressCamera={onOpenCamera} />
+      ) : (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.horizontalList}
+        >
+          {recent.map((item) => {
+            const variant = getScoreVariant(item.score);
+            const c = getVariantColors(variant);
+            return (
+              <TouchableOpacity
+                key={item.id}
+                accessibilityRole="button"
+                activeOpacity={0.9}
+                onPress={() => onOpenProduct(item)}
+              >
+                <PremiumCard style={styles.recentCard}>
+                  <View style={styles.recentTopRow}>
+                    <View style={styles.thumb}>
+                      <Ionicons
+                        name="fast-food-outline"
+                        size={18}
+                        color={TOKENS.primary}
+                      />
+                    </View>
+                    <View style={[styles.scorePill, { backgroundColor: c.tint }]}>
+                      <Text style={[styles.scorePillText, { color: c.text }]}>
+                        {item.score}/100
+                      </Text>
+                    </View>
                   </View>
-                  <View style={[styles.scorePill, { backgroundColor: c.tint }]}>
-                    <Text style={[styles.scorePillText, { color: c.text }]}>
-                      {item.score}/100
-                    </Text>
-                  </View>
-                </View>
-                <Text style={styles.cardTitle} numberOfLines={2}>
-                  {item.name}
-                </Text>
-                <Text style={styles.cardMeta}>{item.date}</Text>
-              </PremiumCard>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
+                  <Text style={styles.cardTitle} numberOfLines={2}>
+                    {item.name}
+                  </Text>
+                  <Text style={styles.cardMeta}>{item.date}</Text>
+                </PremiumCard>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      )}
 
       <View style={{ paddingTop: 18 }}>
         <PremiumCard style={styles.homeWeeklyCard}>
@@ -922,9 +957,25 @@ function HomeScreen({
   );
 }
 
-function HistoryScreen({ history, onOpenProduct, weeklySummary }) {
+function HistoryScreen({ history, onOpenProduct, weeklySummary, onOpenCamera }) {
   const n = history.length;
-  const weeklyScore = n > 0 ? weeklySummary.averageScore : 0;
+
+  if (n === 0) {
+    return (
+      <ScrollView
+        contentContainerStyle={[styles.screenContainer, styles.historyEmptyScroll]}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.header}>
+          <Text style={styles.title}>Geçmiş</Text>
+          <Text style={styles.subtitle}>Haftalık özet ve tarama geçmişin</Text>
+        </View>
+        <ScansEmptyState onPressCamera={onOpenCamera} />
+      </ScrollView>
+    );
+  }
+
+  const weeklyScore = weeklySummary.averageScore;
   const weeklyVariant = getScoreVariant(weeklyScore);
   const c = getVariantColors(weeklyVariant);
 
@@ -1032,7 +1083,24 @@ function HistoryScreen({ history, onOpenProduct, weeklySummary }) {
   );
 }
 
-function ProfileScreen({ userEmail, onLogout }) {
+function ProfileScreen({ userEmail, userName, onLogout }) {
+  const [prefs, setPrefs] = useState({
+    glutenFree: false,
+    vegan: false,
+    noAddedSugar: false,
+    lactoseFree: false,
+  });
+
+  const setPref = (key, value) => {
+    setPrefs((p) => ({ ...p, [key]: value }));
+  };
+
+  const switchProps = {
+    trackColor: { false: SWITCH_TRACK_OFF, true: SWITCH_TRACK_ON },
+    ios_backgroundColor: SWITCH_TRACK_OFF,
+    thumbColor: Platform.OS === "android" ? TOKENS.surface : undefined,
+  };
+
   return (
     <ScrollView
       contentContainerStyle={styles.screenContainer}
@@ -1043,15 +1111,71 @@ function ProfileScreen({ userEmail, onLogout }) {
         <Text style={styles.subtitle}>Ayarların ve sağlık tercihlerin</Text>
       </View>
 
-      <View style={{ paddingTop: 18, gap: 12 }}>
-        <PremiumCard style={{ padding: 18, borderRadius: 24 }}>
-          <Text style={styles.profileLabel}>Email</Text>
+      <View style={{ paddingTop: 18, gap: 16 }}>
+        <PremiumCard style={styles.profileHeroCard}>
+          <Text style={styles.profileHeroName}>{userName}</Text>
+          <Text style={styles.profileLabel}>E-posta</Text>
           <Text style={styles.profileValue}>{userEmail}</Text>
           <View style={{ height: 14 }} />
           <Text style={styles.profileLabel}>Durum</Text>
           <VariantChip variant="good" icon="shield-checkmark-outline">
             Hesap aktif
           </VariantChip>
+        </PremiumCard>
+
+        <PremiumCard style={styles.profilePrefsCard}>
+          <Text style={styles.profileSectionTitle}>Sağlık & Diyet Tercihlerim</Text>
+          <Text style={styles.profileSectionHint}>
+            Tercihler analiz özetinde dikkate alınır; istediğiniz zaman güncelleyebilirsiniz.
+          </Text>
+
+          <View style={styles.preferenceRow}>
+            <View style={styles.preferenceTextCol}>
+              <Text style={styles.preferenceLabel}>Glutensiz</Text>
+              <Text style={styles.preferenceSub}>Gluten içeren içerikleri işaretle</Text>
+            </View>
+            <Switch
+              value={prefs.glutenFree}
+              onValueChange={(v) => setPref("glutenFree", v)}
+              {...switchProps}
+            />
+          </View>
+
+          <View style={styles.preferenceRow}>
+            <View style={styles.preferenceTextCol}>
+              <Text style={styles.preferenceLabel}>Vegan</Text>
+              <Text style={styles.preferenceSub}>Hayvansal kaynaklı içerikleri dikkate al</Text>
+            </View>
+            <Switch
+              value={prefs.vegan}
+              onValueChange={(v) => setPref("vegan", v)}
+              {...switchProps}
+            />
+          </View>
+
+          <View style={styles.preferenceRow}>
+            <View style={styles.preferenceTextCol}>
+              <Text style={styles.preferenceLabel}>İlave Şeker Yok</Text>
+              <Text style={styles.preferenceSub}>Eklenmiş şekerleri vurgula</Text>
+            </View>
+            <Switch
+              value={prefs.noAddedSugar}
+              onValueChange={(v) => setPref("noAddedSugar", v)}
+              {...switchProps}
+            />
+          </View>
+
+          <View style={[styles.preferenceRow, styles.preferenceRowLast]}>
+            <View style={styles.preferenceTextCol}>
+              <Text style={styles.preferenceLabel}>Laktozsuz</Text>
+              <Text style={styles.preferenceSub}>Süt şekeri (laktoz) hassasiyeti</Text>
+            </View>
+            <Switch
+              value={prefs.lactoseFree}
+              onValueChange={(v) => setPref("lactoseFree", v)}
+              {...switchProps}
+            />
+          </View>
         </PremiumCard>
 
         <PrimaryButton label="Çıkış Yap" icon="log-out-outline" onPress={onLogout} />
@@ -1187,6 +1311,7 @@ export default function App() {
             <HistoryScreen
               history={historyList}
               weeklySummary={weeklySummary}
+              onOpenCamera={() => setCameraOpen(true)}
               onOpenProduct={(p) => {
                 setSelectedProduct(p);
                 setProductDetailOpen(true);
@@ -1196,6 +1321,7 @@ export default function App() {
           {activeTab === "profile" ? (
             <ProfileScreen
               userEmail={session.email}
+              userName={greetingName}
               onLogout={() =>
                 setSession({ isAuthed: false, email: "", displayName: "" })
               }
@@ -1343,6 +1469,121 @@ const styles = StyleSheet.create({
     color: TOKENS.textSecondary,
     fontSize: 13,
     lineHeight: 18,
+  },
+
+  emptyStateBox: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 28,
+    paddingHorizontal: 20,
+    marginTop: 8,
+  },
+  emptyStateIconWrap: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: "rgba(100, 116, 139, 0.12)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 20,
+  },
+  emptyStateBody: {
+    color: TOKENS.textSecondary,
+    fontSize: 15,
+    lineHeight: 23,
+    textAlign: "center",
+    fontWeight: "600",
+    maxWidth: 320,
+  },
+  emptyStateCta: {
+    marginTop: 22,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 16,
+    backgroundColor: "rgba(5, 150, 105, 0.10)",
+    borderWidth: 1,
+    borderColor: "rgba(5, 150, 105, 0.22)",
+  },
+  emptyStateCtaText: {
+    color: TOKENS.primary,
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  historyEmptyScroll: {
+    flexGrow: 1,
+    paddingBottom: 118,
+  },
+
+  profileHeroCard: {
+    padding: 20,
+    borderRadius: 24,
+  },
+  profileHeroName: {
+    color: TOKENS.textPrimary,
+    fontSize: 22,
+    fontWeight: "800",
+    letterSpacing: -0.3,
+    marginBottom: 16,
+  },
+  profilePrefsCard: {
+    padding: 20,
+    borderRadius: 24,
+  },
+  profileSectionTitle: {
+    color: TOKENS.textPrimary,
+    fontSize: 16,
+    fontWeight: "800",
+    letterSpacing: -0.1,
+    marginBottom: 8,
+  },
+  profileSectionHint: {
+    color: TOKENS.textSecondary,
+    fontSize: 13,
+    lineHeight: 19,
+    marginBottom: 18,
+  },
+  profileLabel: {
+    color: TOKENS.textSecondary,
+    fontSize: 12,
+    fontWeight: "700",
+    marginBottom: 6,
+  },
+  profileValue: {
+    color: TOKENS.textPrimary,
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  preferenceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 16,
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "rgba(100, 116, 139, 0.18)",
+  },
+  preferenceRowLast: {
+    borderBottomWidth: 0,
+    paddingBottom: 4,
+  },
+  preferenceTextCol: {
+    flex: 1,
+    paddingRight: 8,
+    gap: 4,
+  },
+  preferenceLabel: {
+    color: TOKENS.textPrimary,
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  preferenceSub: {
+    color: TOKENS.textSecondary,
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: "600",
   },
 
   // Cards & shadows (premium dashboard — DS elevation)
