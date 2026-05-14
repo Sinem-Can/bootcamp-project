@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   Dimensions,
   KeyboardAvoidingView,
   Modal,
@@ -33,10 +32,41 @@ const TAB_ITEMS = [
 ];
 
 const INITIAL_HISTORY = [
-  { id: "h1", name: "Tam Yağlı Süt", score: 86, date: "Bugün" },
-  { id: "h2", name: "Fıstık Ezmesi", score: 62, date: "Dün" },
-  { id: "h3", name: "Çikolata", score: 28, date: "2 gün önce" },
-  { id: "h4", name: "Yulaf Bar", score: 74, date: "Geçen hafta" },
+  {
+    id: "h1",
+    name: "Tam Yağlı Süt",
+    score: 86,
+    date: "Bugün",
+    category: "Süt Ürünleri",
+  },
+  {
+    id: "h2",
+    name: "Fıstık Ezmesi",
+    score: 62,
+    date: "Dün",
+    category: "Atıştırmalık",
+  },
+  {
+    id: "h3",
+    name: "Çikolata",
+    score: 28,
+    date: "2 gün önce",
+    category: "Tatlı",
+  },
+  {
+    id: "h4",
+    name: "Yulaf Bar",
+    score: 74,
+    date: "Geçen hafta",
+    category: "Atıştırmalık",
+  },
+];
+
+/** Barkod tarama simülasyonu: sırayla dönen örnek ürünler (kategori + skor tutarlı) */
+const SCAN_DEMO_PRODUCTS = [
+  { name: "Asitli Kolalı İçecek", score: 28, category: "İçecek" },
+  { name: "Sütlü Çikolata", score: 32, category: "Tatlı" },
+  { name: "Baharatlı Patates Cipsi", score: 36, category: "Atıştırmalık" },
 ];
 
 const SCREEN_H = Dimensions.get("window").height;
@@ -51,56 +81,208 @@ const DISCOVER_CATEGORIES = [
   { id: "frozen", label: "Donuk", icon: "snow-outline" },
 ];
 
+/**
+ * PRD: Alternatif aynı alt kategoride olmalı. Önce `category`, yoksa isimden tahmin.
+ * Öneri metinleri yalnızca ilgili kategori içinde üretilir.
+ */
+function inferCategoryFromName(name) {
+  const raw = (name ?? "").toLowerCase();
+  if (
+    raw.includes("kola") ||
+    raw.includes("gazoz") ||
+    raw.includes("içecek") ||
+    raw.includes("asitli") ||
+    raw.includes("maden") ||
+    raw.includes("nektar") ||
+    raw.includes("smoothie")
+  ) {
+    return "İçecek";
+  }
+  if (
+    raw.includes("çikolata") ||
+    raw.includes("gofret") ||
+    raw.includes("tatlı") ||
+    raw.includes("kek") ||
+    raw.includes("dondurma")
+  ) {
+    return "Tatlı";
+  }
+  if (
+    raw.includes("süt") ||
+    raw.includes("yoğurt") ||
+    raw.includes("kefir") ||
+    raw.includes("ayran")
+  ) {
+    return "Süt Ürünleri";
+  }
+  if (
+    raw.includes("ekmek") ||
+    raw.includes("börek") ||
+    raw.includes("poğaça")
+  ) {
+    return "Fırın";
+  }
+  if (
+    raw.includes("cips") ||
+    raw.includes("kraker") ||
+    raw.includes("bar") ||
+    raw.includes("kuruyemiş") ||
+    raw.includes("fıstık") ||
+    raw.includes("yulaf")
+  ) {
+    return "Atıştırmalık";
+  }
+  if (
+    raw.includes("müsli") ||
+    raw.includes("gevrek") ||
+    raw.includes("reçel") ||
+    raw.includes("zeytin")
+  ) {
+    return "Kahvaltılık";
+  }
+  if (raw.includes("dondurulmuş") || raw.includes("donuk")) {
+    return "Donuk";
+  }
+  return "Atıştırmalık";
+}
+
 function getHealthierAlternative(product) {
   const raw = (product?.name ?? "").toLowerCase();
-  const rules = [
-    {
-      keys: ["cips", "chip", "kraker"],
-      title: "Fırınlanmış Nohut Atıştırmalığı",
-      reason:
-        "Aynı ‘tuzlu atıştırma’ ihtiyacında daha yüksek lif, daha az trans/hidrojene yağ riski.",
+  const category =
+    (product?.category && String(product.category).trim()) ||
+    inferCategoryFromName(product?.name);
+
+  const byCategory = {
+    Tatlı: {
+      default: {
+        title: "%70 ve üzeri kakao bitter çikolata",
+        reason:
+          "Aynı tatlı reyonunda ek şekeri ve katkı yoğunluğunu düşüren, kakao oranı yüksek seçeneklere yönelin.",
+      },
+      refinements: [
+        {
+          keys: ["çikolata"],
+          title: "%70 Kakao Bitter Çikolata",
+          reason:
+            "Çikolata ihtiyacınızı aynı kategoride karşılarken şeker yükünü belirgin biçimde azaltır.",
+        },
+        {
+          keys: ["gofret", "kek"],
+          title: "Düşük şekerli tahıl barı veya bitter kaplı gofret",
+          reason:
+            "Aynı tatlı grubunda daha kısa içerik listesi ve daha düşük şeker profili arayın.",
+        },
+      ],
     },
-    {
-      keys: ["kola", "gazoz", "asitli", "enerji içecek"],
-      title: "Doğal Maden Suyu veya Maden + Limon",
-      reason:
-        "Ek şeker ve asit yükü olmadan serinletir; içecek reyonunda benzer konumda sıkça bulunur.",
+    İçecek: {
+      default: {
+        title: "Doğal maden suyu (sade veya maden + limon)",
+        reason:
+          "Aynı içecek ihtiyacında ek şeker ve asit yükü olmadan serinleten seçenekleri tercih edin.",
+      },
+      refinements: [
+        {
+          keys: ["kola", "gazoz", "asitli", "enerji"],
+          title: "Doğal maden suyu",
+          reason:
+            "Asitli ve şekerli içecekler yerine aynı reyonda bulunan sade maden suyu ile susuzluğunuzu giderin.",
+        },
+      ],
     },
-    {
-      keys: ["çikolata", "gofret", "bar", "şekerleme"],
-      title: "%70+ Kakao Bitter veya Hurma",
-      reason:
-        "Şeker yoğunluğunu düşürür; daha kısa içerik listesiyle kontrol kolaylaşır.",
+    Atıştırmalık: {
+      default: {
+        title: "Fırınlanmış nohut veya tam tahıllı kraker",
+        reason:
+          "Aynı atıştırmalık grubunda daha yüksek lif ve daha sade yağ profili sunan ürünlere bakın.",
+      },
+      refinements: [
+        {
+          keys: ["cips", "patates", "baharat"],
+          title: "Fırınlanmış nohut atıştırmalığı",
+          reason:
+            "Tuzlu cips yerine aynı kategoride fırınlanmış bakliye tabanlı, trans yağ riski daha düşük alternatifler seçin.",
+        },
+        {
+          keys: ["fıstık", "ezme"],
+          title: "İlave şekersiz %100 fıstık ezmesi",
+          reason:
+            "Aynı atıştırmalık grubunda kısa içerik listesi ve düşük işlenmiş şeker profili hedefleyin.",
+        },
+        {
+          keys: ["yulaf", "bar"],
+          matchAll: true,
+          title: "Düşük şekerli protein veya yulaf barı",
+          reason:
+            "Aynı bar reyonunda şeker ve katkı oranı daha düşük, lif oranı yüksek etiketleri karşılaştırın.",
+        },
+        {
+          keys: ["kraker"],
+          title: "Tam tahıllı veya ekşi mayalı kraker",
+          reason:
+            "Aynı kraker kategorisinde raf ömrü katkıları daha sınırlı, tahıl kaynağı net ürünleri tercih edin.",
+        },
+      ],
     },
-    {
-      keys: ["süt", "yoğurt", "kefir"],
-      title: "Yağ Oranı Düşük veya Laktozsuz Günlük Süt",
-      reason:
-        "Aynı kategoride daha dengeli yağ; laktoz hassasiyetinde laktozsuz seçenek.",
+    "Süt Ürünleri": {
+      default: {
+        title: "Yağı hafifletilmiş veya laktozsuz günlük süt",
+        reason:
+          "Aynı süt ürünleri reyonunda yağ dengesi ve laktoz ihtiyacınıza uygun etiketleri seçin.",
+      },
+      refinements: [
+        {
+          keys: ["tam yağlı", "yağlı"],
+          title: "Yarı yağlı veya laktozsuz süt",
+          reason:
+            "Aynı kategoride doygunluk korunurken yağ ve laktoz yükünü dengeleyen seçeneklere yönelin.",
+        },
+      ],
     },
-    {
-      keys: ["meyve", "nektar", "smoothie"],
-      title: "Katkısız %100 Meyve Suyu (Sınırlı Porsiyon)",
-      reason:
-        "Meyve nektarı yerine posalı/posasız ama ek şekersiz etiketli ürün tercih edin.",
+    Kahvaltılık: {
+      default: {
+        title: "Ek şekersiz granola veya tam tahıllı gevrek",
+        reason:
+          "Aynı kahvaltılık grubunda posa ve protein oranı daha yüksek, ek şeker daha düşük ürünleri arayın.",
+      },
+      refinements: [],
     },
-    {
-      keys: ["ekmek", "beyaz", "sandviç"],
-      title: "Tam Tahıllı veya Çavdarlı Ekmek",
-      reason:
-        "Glisemik yükü daha yumuşatır; lif ve doygunluk açısından daha verimli.",
+    Fırın: {
+      default: {
+        title: "Tam tahıllı veya çavdarlı ekmek",
+        reason:
+          "Aynı fırın ürünleri grubunda glisemik yükü yumuşatan lif kaynaklarını önceliklendirin.",
+      },
+      refinements: [
+        {
+          keys: ["beyaz", "sandviç"],
+          title: "Tam tahıllı dilim ekmek",
+          reason:
+            "Aynı ekmek kategorisinde raf ömrü ve katkı listesi daha sade ürünleri tercih edin.",
+        },
+      ],
     },
-  ];
-  for (const r of rules) {
-    if (r.keys.some((k) => raw.includes(k))) {
-      return { title: r.title, reason: r.reason };
+    Donuk: {
+      default: {
+        title: "Sebzeli veya bakliyeli donuk ana yemek",
+        reason:
+          "Aynı donuk gıda grubunda tuz ve doyurucu lif dengesi daha iyi olan seçeneklere bakın.",
+      },
+      refinements: [],
+    },
+  };
+
+  const block = byCategory[category] ?? byCategory.Atıştırmalık;
+  if (block.refinements?.length) {
+    for (const r of block.refinements) {
+      const hit = r.matchAll
+        ? r.keys.every((k) => raw.includes(k))
+        : r.keys.some((k) => raw.includes(k));
+      if (hit) {
+        return { title: r.title, reason: r.reason, category };
+      }
     }
   }
-  return {
-    title: "Tam Tahıllı Kraker veya Kuruyemiş Karışımı",
-    reason:
-      "Benzer raflarda daha kısa içerik listesi ve daha düşük işlenmiş yağ profili arayın.",
-  };
+  return { ...block.default, category };
 }
 
 function getScoreVariant(score) {
@@ -308,110 +490,6 @@ function CameraScanModal({ visible, onClose, onSimulateScan }) {
   );
 }
 
-function AnalysisModal({ visible, onClose, product }) {
-  const [step, setStep] = useState("loading"); // loading | result
-  const timerRef = useRef(null);
-
-  useEffect(() => {
-    if (!visible) return;
-    setStep("loading");
-    timerRef.current = setTimeout(() => setStep("result"), 2000);
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
-  }, [visible]);
-
-  return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
-    >
-      <View style={styles.bottomSheetOverlay}>
-        <TouchableOpacity
-          style={styles.bottomSheetBackdrop}
-          activeOpacity={1}
-          onPress={onClose}
-          accessibilityRole="button"
-          accessibilityLabel="Kapat"
-        />
-        <View style={styles.bottomSheet}>
-          <View style={styles.bottomSheetHandle} />
-          {step === "loading" ? (
-            <View style={styles.bottomSheetLoadingWrap}>
-              <View style={styles.loadingBlock}>
-                <ActivityIndicator size="large" color={TOKENS.primary} />
-                <Text style={styles.modalTitle}>Ürün Analiz Ediliyor...</Text>
-                <Text style={[styles.modalSub, styles.modalSubLeft]}>
-                  İçerik listesi ve risk göstergeleri hazırlanıyor; lütfen birkaç saniye bekleyin.
-                </Text>
-              </View>
-            </View>
-          ) : (
-            <ScrollView
-              style={styles.bottomSheetScrollFlex}
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.bottomSheetScroll}
-            >
-              <View style={styles.resultBlock}>
-                <View style={styles.resultHeader}>
-                  <View style={styles.resultThumb}>
-                    <Ionicons
-                      name="nutrition-outline"
-                      size={20}
-                      color={TOKENS.primary}
-                    />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.modalTitle}>
-                      {product?.name ?? "Popkek"}
-                    </Text>
-                    <Text style={[styles.modalSub, styles.modalSubLeft]}>
-                      İçerik özeti ve risk değerlendirmesi
-                    </Text>
-                  </View>
-                  <TouchableOpacity
-                    accessibilityRole="button"
-                    onPress={onClose}
-                    activeOpacity={0.85}
-                    style={styles.closeButton}
-                  >
-                    <Ionicons name="close" size={18} color={TOKENS.textPrimary} />
-                  </TouchableOpacity>
-                </View>
-
-                <View style={styles.modalSection}>
-                  <Text style={styles.modalSectionTitle}>Riskli İçerikler</Text>
-                  <View style={styles.chipsRow}>
-                    <VariantChip variant="danger" icon="warning-outline">
-                      Palmiye Yağı
-                    </VariantChip>
-                    <VariantChip variant="warning" icon="alert-circle-outline">
-                      Şeker Oranı Yüksek
-                    </VariantChip>
-                  </View>
-                </View>
-
-                <View style={styles.modalSection}>
-                  <Text style={styles.modalSectionTitle}>Temiz İçerikler</Text>
-                  <View style={styles.chipsRow}>
-                    <VariantChip variant="good" icon="checkmark-circle-outline">
-                      Doğal Aroma
-                    </VariantChip>
-                  </View>
-                </View>
-
-                <PrimaryButton label="Kapat" icon="close-outline" onPress={onClose} />
-              </View>
-            </ScrollView>
-          )}
-        </View>
-      </View>
-    </Modal>
-  );
-}
-
 function ProductDetailModal({ visible, product, onClose }) {
   const score = product?.score ?? 0;
   const variant = getScoreVariant(score);
@@ -483,6 +561,11 @@ function ProductDetailModal({ visible, product, onClose }) {
                 <Text style={[styles.modalSub, styles.modalSubLeft]}>
                   İçerik analizi ve kişiselleştirilmiş özet
                 </Text>
+                {product?.category ? (
+                  <Text style={styles.modalCategory}>
+                    Kategori · {product.category}
+                  </Text>
+                ) : null}
               </View>
               <TouchableOpacity
                 accessibilityRole="button"
@@ -573,8 +656,9 @@ function ProductDetailModal({ visible, product, onClose }) {
                 <Text style={styles.alternativeProduct}>{alternative.title}</Text>
                 <Text style={styles.alternativeReason}>{alternative.reason}</Text>
                 <Text style={styles.alternativeFoot}>
-                  Öneriler, profilinizde seçtiğiniz diyet ve içerik kısıtlarına uygun alternatifleri
-                  önceliklendirir. Satın almadan önce güncel içerik etiketini kontrol etmenizi öneririz.
+                  Bu öneri, taradığınız ürünle aynı ürün grubunda ({alternative.category}) yer alan, profilinize
+                  uygun yeşil skorlu bir seçenek hedefler. Satın almadan önce güncel içerik etiketini kontrol
+                  etmenizi öneririz.
                 </Text>
               </View>
             ) : null}
@@ -919,19 +1003,18 @@ function TabBar({ activeTab, onChange }) {
 }
 
 export default function App() {
-  const history = useMemo(
-    () =>
-      INITIAL_HISTORY.map((h) => ({
-        ...h,
-        variant: getScoreVariant(h.score),
-      })),
-    []
+  const [historyList, setHistoryList] = useState(() =>
+    INITIAL_HISTORY.map((h) => ({
+      ...h,
+      variant: getScoreVariant(h.score),
+    }))
   );
+  const scanDemoIndexRef = useRef(0);
 
   const weeklySummary = useMemo(() => {
-    const green = history.filter((h) => getScoreVariant(h.score) === "good").length;
-    const yellow = history.filter((h) => getScoreVariant(h.score) === "warning").length;
-    const red = history.filter((h) => getScoreVariant(h.score) === "danger").length;
+    const green = historyList.filter((h) => getScoreVariant(h.score) === "good").length;
+    const yellow = historyList.filter((h) => getScoreVariant(h.score) === "warning").length;
+    const red = historyList.filter((h) => getScoreVariant(h.score) === "danger").length;
     const total = green + yellow + red;
     return {
       green,
@@ -939,19 +1022,29 @@ export default function App() {
       red,
       total,
     };
-  }, [history]);
+  }, [historyList]);
 
   const [session, setSession] = useState({ isAuthed: false, email: "" });
   const [activeTab, setActiveTab] = useState("home");
   const [cameraOpen, setCameraOpen] = useState(false);
-  const [analysisOpen, setAnalysisOpen] = useState(false);
-  const [analysisProduct, setAnalysisProduct] = useState(null);
   const [productDetailOpen, setProductDetailOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
 
-  const openAnalysisFor = (product) => {
-    setAnalysisProduct(product ?? { name: "Popkek" });
-    setAnalysisOpen(true);
+  const completeScanDemo = () => {
+    const i = scanDemoIndexRef.current % SCAN_DEMO_PRODUCTS.length;
+    scanDemoIndexRef.current += 1;
+    const tpl = SCAN_DEMO_PRODUCTS[i];
+    const scanned = {
+      id: `scan-${Date.now()}`,
+      name: tpl.name,
+      score: tpl.score,
+      category: tpl.category,
+      date: "Şimdi",
+      variant: getScoreVariant(tpl.score),
+    };
+    setHistoryList((prev) => [scanned, ...prev]);
+    setSelectedProduct(scanned);
+    setProductDetailOpen(true);
   };
 
   if (!session.isAuthed) {
@@ -968,7 +1061,7 @@ export default function App() {
         <View style={styles.flex}>
           {activeTab === "home" ? (
             <HomeScreen
-              recent={history.slice(0, 4)}
+              recent={historyList.slice(0, 4)}
               onOpenCamera={() => setCameraOpen(true)}
               weeklySummary={weeklySummary}
               onPickCategory={() => setCameraOpen(true)}
@@ -980,7 +1073,7 @@ export default function App() {
           ) : null}
           {activeTab === "history" ? (
             <HistoryScreen
-              history={history}
+              history={historyList}
               onOpenProduct={(p) => {
                 setSelectedProduct(p);
                 setProductDetailOpen(true);
@@ -1003,14 +1096,8 @@ export default function App() {
         onClose={() => setCameraOpen(false)}
         onSimulateScan={() => {
           setCameraOpen(false);
-          openAnalysisFor({ name: "Popkek" });
+          completeScanDemo();
         }}
-      />
-
-      <AnalysisModal
-        visible={analysisOpen}
-        product={analysisProduct}
-        onClose={() => setAnalysisOpen(false)}
       />
 
       <ProductDetailModal
@@ -1506,22 +1593,12 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(100, 116, 139, 0.35)",
     marginBottom: 14,
   },
-  bottomSheetLoadingWrap: {
-    flex: 1,
-    justifyContent: "center",
-    minHeight: 200,
-  },
   bottomSheetScrollFlex: {
     flex: 1,
   },
   bottomSheetScroll: {
     paddingBottom: 24,
     gap: 16,
-  },
-  loadingBlock: {
-    alignItems: "center",
-    paddingVertical: 24,
-    gap: 12,
   },
   resultBlock: {
     gap: 16,
@@ -1566,6 +1643,13 @@ const styles = StyleSheet.create({
   },
   modalSubTight: {
     marginTop: 4,
+  },
+  modalCategory: {
+    marginTop: 6,
+    fontSize: 12,
+    fontWeight: "700",
+    color: TOKENS.primary,
+    letterSpacing: 0.2,
   },
   modalSection: {
     gap: 10,
