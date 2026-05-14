@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Dimensions,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -37,6 +38,70 @@ const INITIAL_HISTORY = [
   { id: "h3", name: "Çikolata", score: 28, date: "2 gün önce" },
   { id: "h4", name: "Yulaf Bar", score: 74, date: "Geçen hafta" },
 ];
+
+const SCREEN_H = Dimensions.get("window").height;
+const BOTTOM_SHEET_HEIGHT = Math.round(SCREEN_H * 0.8);
+
+const DISCOVER_CATEGORIES = [
+  { id: "snack", label: "Atıştırmalık", icon: "nutrition-outline" },
+  { id: "drink", label: "İçecek", icon: "water-outline" },
+  { id: "breakfast", label: "Kahvaltılık", icon: "cafe-outline" },
+  { id: "dairy", label: "Süt Ürünleri", icon: "flask-outline" },
+  { id: "bakery", label: "Fırın", icon: "pizza-outline" },
+  { id: "frozen", label: "Donuk", icon: "snow-outline" },
+];
+
+function getHealthierAlternative(product) {
+  const raw = (product?.name ?? "").toLowerCase();
+  const rules = [
+    {
+      keys: ["cips", "chip", "kraker"],
+      title: "Fırınlanmış Nohut Atıştırmalığı",
+      reason:
+        "Aynı ‘tuzlu atıştırma’ ihtiyacında daha yüksek lif, daha az trans/hidrojene yağ riski.",
+    },
+    {
+      keys: ["kola", "gazoz", "asitli", "enerji içecek"],
+      title: "Doğal Maden Suyu veya Maden + Limon",
+      reason:
+        "Ek şeker ve asit yükü olmadan serinletir; aynı fiyat bandında rafta sık bulunur.",
+    },
+    {
+      keys: ["çikolata", "gofret", "bar", "şekerleme"],
+      title: "%70+ Kakao Bitter veya Hurma",
+      reason:
+        "Şeker yoğunluğunu düşürür; daha kısa içerik listesiyle kontrol kolaylaşır.",
+    },
+    {
+      keys: ["süt", "yoğurt", "kefir"],
+      title: "Yağ Oranı Düşük veya Laktozsuz Günlük Süt",
+      reason:
+        "Aynı kategoride daha dengeli yağ; laktoz hassasiyetinde laktozsuz seçenek.",
+    },
+    {
+      keys: ["meyve", "nektar", "smoothie"],
+      title: "Katkısız %100 Meyve Suyu (Sınırlı Porsiyon)",
+      reason:
+        "Meyve nektarı yerine posalı/posasız ama ek şekersiz etiketli ürün tercih edin.",
+    },
+    {
+      keys: ["ekmek", "beyaz", "sandviç"],
+      title: "Tam Tahıllı veya Çavdarlı Ekmek",
+      reason:
+        "Glisemik yükü daha yumuşatır; lif ve doygunluk açısından daha verimli.",
+    },
+  ];
+  for (const r of rules) {
+    if (r.keys.some((k) => raw.includes(k))) {
+      return { title: r.title, reason: r.reason };
+    }
+  }
+  return {
+    title: "Tam Tahıllı Kraker veya Kuruyemiş Karışımı",
+    reason:
+      "Benzer raflarda daha kısa içerik listesi ve daha düşük işlenmiş yağ profili arayın.",
+  };
+}
 
 function getScoreVariant(score) {
   if (score >= 75) return "good";
@@ -258,66 +323,86 @@ function AnalysisModal({ visible, onClose, product }) {
     <Modal
       visible={visible}
       transparent
-      animationType="fade"
+      animationType="slide"
       onRequestClose={onClose}
     >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalCard}>
+      <View style={styles.bottomSheetOverlay}>
+        <TouchableOpacity
+          style={styles.bottomSheetBackdrop}
+          activeOpacity={1}
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel="Kapat"
+        />
+        <View style={styles.bottomSheet}>
+          <View style={styles.bottomSheetHandle} />
           {step === "loading" ? (
-            <View style={styles.loadingBlock}>
-              <ActivityIndicator size="large" color={TOKENS.primary} />
-              <Text style={styles.modalTitle}>Ürün Analiz Ediliyor...</Text>
-              <Text style={styles.modalSub}>
-                İçerikler sağlık standartlarına göre değerlendiriliyor
-              </Text>
+            <View style={styles.bottomSheetLoadingWrap}>
+              <View style={styles.loadingBlock}>
+                <ActivityIndicator size="large" color={TOKENS.primary} />
+                <Text style={styles.modalTitle}>Ürün Analiz Ediliyor...</Text>
+                <Text style={[styles.modalSub, styles.modalSubLeft]}>
+                  İçerikler sağlık standartlarına göre değerlendiriliyor
+                </Text>
+              </View>
             </View>
           ) : (
-            <View style={styles.resultBlock}>
-              <View style={styles.resultHeader}>
-                <View style={styles.resultThumb}>
-                  <Ionicons
-                    name="nutrition-outline"
-                    size={20}
-                    color={TOKENS.textSecondary}
-                  />
+            <ScrollView
+              style={styles.bottomSheetScrollFlex}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.bottomSheetScroll}
+            >
+              <View style={styles.resultBlock}>
+                <View style={styles.resultHeader}>
+                  <View style={styles.resultThumb}>
+                    <Ionicons
+                      name="nutrition-outline"
+                      size={20}
+                      color={TOKENS.textSecondary}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.modalTitle}>
+                      {product?.name ?? "Popkek"}
+                    </Text>
+                    <Text style={[styles.modalSub, styles.modalSubLeft]}>
+                      Örnek içerik analizi
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    onPress={onClose}
+                    activeOpacity={0.85}
+                    style={styles.closeButton}
+                  >
+                    <Ionicons name="close" size={18} color={TOKENS.textPrimary} />
+                  </TouchableOpacity>
                 </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.modalTitle}>{product?.name ?? "Popkek"}</Text>
-                  <Text style={styles.modalSub}>Örnek içerik analizi</Text>
-                </View>
-                <TouchableOpacity
-                  accessibilityRole="button"
-                  onPress={onClose}
-                  activeOpacity={0.85}
-                  style={styles.closeButton}
-                >
-                  <Ionicons name="close" size={18} color={TOKENS.textPrimary} />
-                </TouchableOpacity>
-              </View>
 
-              <View style={styles.modalSection}>
-                <Text style={styles.modalSectionTitle}>Riskli İçerikler</Text>
-                <View style={styles.chipsRow}>
-                  <VariantChip variant="danger" icon="warning-outline">
-                    Palmiye Yağı
-                  </VariantChip>
-                  <VariantChip variant="warning" icon="alert-circle-outline">
-                    Şeker Oranı Yüksek
-                  </VariantChip>
+                <View style={styles.modalSection}>
+                  <Text style={styles.modalSectionTitle}>Riskli İçerikler</Text>
+                  <View style={styles.chipsRow}>
+                    <VariantChip variant="danger" icon="warning-outline">
+                      Palmiye Yağı
+                    </VariantChip>
+                    <VariantChip variant="warning" icon="alert-circle-outline">
+                      Şeker Oranı Yüksek
+                    </VariantChip>
+                  </View>
                 </View>
-              </View>
 
-              <View style={styles.modalSection}>
-                <Text style={styles.modalSectionTitle}>Temiz İçerikler</Text>
-                <View style={styles.chipsRow}>
-                  <VariantChip variant="good" icon="checkmark-circle-outline">
-                    Doğal Aroma
-                  </VariantChip>
+                <View style={styles.modalSection}>
+                  <Text style={styles.modalSectionTitle}>Temiz İçerikler</Text>
+                  <View style={styles.chipsRow}>
+                    <VariantChip variant="good" icon="checkmark-circle-outline">
+                      Doğal Aroma
+                    </VariantChip>
+                  </View>
                 </View>
-              </View>
 
-              <PrimaryButton label="Kapat" icon="close-outline" onPress={onClose} />
-            </View>
+                <PrimaryButton label="Kapat" icon="close-outline" onPress={onClose} />
+              </View>
+            </ScrollView>
           )}
         </View>
       </View>
@@ -329,6 +414,11 @@ function ProductDetailModal({ visible, product, onClose }) {
   const score = product?.score ?? 0;
   const variant = getScoreVariant(score);
   const vc = getVariantColors(variant);
+  const showAlternative = variant === "warning" || variant === "danger";
+  const alternative = useMemo(
+    () => (showAlternative ? getHealthierAlternative(product) : null),
+    [product, showAlternative]
+  );
 
   const items = useMemo(() => {
     const base = [{ variant: "good", text: "Palmiye Yağı Yok" }];
@@ -360,73 +450,160 @@ function ProductDetailModal({ visible, product, onClose }) {
     <Modal
       visible={visible}
       transparent
-      animationType="fade"
+      animationType="slide"
       onRequestClose={onClose}
     >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalCard}>
-          <View style={styles.resultHeader}>
-            <View style={styles.resultThumb}>
-              <Ionicons
-                name="fast-food-outline"
-                size={20}
-                color={TOKENS.textSecondary}
-              />
+      <View style={styles.bottomSheetOverlay}>
+        <TouchableOpacity
+          style={styles.bottomSheetBackdrop}
+          activeOpacity={1}
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel="Kapat"
+        />
+        <View style={styles.bottomSheet}>
+          <View style={styles.bottomSheetHandle} />
+          <ScrollView
+            style={styles.bottomSheetScrollFlex}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.bottomSheetScroll}
+          >
+            <View style={styles.resultHeader}>
+              <View style={styles.resultThumb}>
+                <Ionicons
+                  name="fast-food-outline"
+                  size={20}
+                  color={TOKENS.textSecondary}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.modalTitle}>{product?.name ?? "Ürün"}</Text>
+                <Text style={[styles.modalSub, styles.modalSubLeft]}>
+                  Detaylı sağlık özeti
+                </Text>
+              </View>
+              <TouchableOpacity
+                accessibilityRole="button"
+                onPress={onClose}
+                activeOpacity={0.85}
+                style={styles.closeButton}
+              >
+                <Ionicons name="close" size={18} color={TOKENS.textPrimary} />
+              </TouchableOpacity>
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.modalTitle}>{product?.name ?? "Ürün"}</Text>
-              <Text style={styles.modalSub}>Detaylı sağlık özeti</Text>
-            </View>
-            <TouchableOpacity
-              accessibilityRole="button"
-              onPress={onClose}
-              activeOpacity={0.85}
-              style={styles.closeButton}
-            >
-              <Ionicons name="close" size={18} color={TOKENS.textPrimary} />
-            </TouchableOpacity>
-          </View>
 
-          <View style={{ paddingTop: 14, gap: 10 }}>
-            <Text style={styles.modalSectionTitle}>Sağlık Skoru</Text>
-            <View style={[styles.scorePill, { backgroundColor: vc.tint }]}>
-              <Text style={[styles.scorePillText, { color: vc.text }]}>
-                {score}/100
-              </Text>
-            </View>
-          </View>
-
-          <View style={{ paddingTop: 16, gap: 10 }}>
-            <Text style={styles.modalSectionTitle}>İçerik Analizi</Text>
-            <View style={styles.chipsRow}>
-              {items.map((it, idx) => (
-                <VariantChip
-                  key={`${it.text}-${idx}`}
-                  variant={it.variant}
-                  icon={
-                    it.variant === "good"
-                      ? "checkmark-circle-outline"
-                      : it.variant === "warning"
-                      ? "alert-circle-outline"
-                      : "warning-outline"
-                  }
+            <View style={styles.detailScoreRow}>
+              <View style={styles.donutWrap}>
+                <View
+                  style={[
+                    styles.donutRing,
+                    {
+                      borderColor: vc.text,
+                    },
+                  ]}
                 >
-                  {it.text}
-                </VariantChip>
-              ))}
+                  <Text style={[styles.donutScore, { color: vc.text }]}>
+                    {score}
+                  </Text>
+                  <Text style={styles.donutLabel}>/100</Text>
+                </View>
+              </View>
+              <View style={{ flex: 1, gap: 8 }}>
+                <Text style={styles.modalSectionTitle}>Sağlık Skoru</Text>
+                <View style={[styles.scorePill, { backgroundColor: vc.tint }]}>
+                  <Text style={[styles.scorePillText, { color: vc.text }]}>
+                    {variant === "good"
+                      ? "Yeşil — Uygun"
+                      : variant === "warning"
+                      ? "Sarı — Dikkat"
+                      : "Kırmızı — Risk"}
+                  </Text>
+                </View>
+                <Text style={[styles.modalSub, styles.modalSubLeft]}>
+                  Trafik lambası skoru; şeker, yağ, tuz ve katkı yoğunluğuna göre
+                  simüle edilmiştir.
+                </Text>
+              </View>
             </View>
-          </View>
 
-          <View style={{ paddingTop: 18 }}>
-            <PrimaryButton label="Kapat" icon="close-outline" onPress={onClose} />
-          </View>
+            <View style={{ paddingTop: 8, gap: 10 }}>
+              <Text style={styles.modalSectionTitle}>İçerik Analizi</Text>
+              <View style={styles.chipsRow}>
+                {items.map((it, idx) => (
+                  <VariantChip
+                    key={`${it.text}-${idx}`}
+                    variant={it.variant}
+                    icon={
+                      it.variant === "good"
+                        ? "checkmark-circle-outline"
+                        : it.variant === "warning"
+                        ? "alert-circle-outline"
+                        : "warning-outline"
+                    }
+                  >
+                    {it.text}
+                  </VariantChip>
+                ))}
+              </View>
+            </View>
+
+            {showAlternative && alternative ? (
+              <View style={styles.alternativeCard}>
+                <View style={styles.alternativeHeader}>
+                  <Ionicons
+                    name="leaf-outline"
+                    size={20}
+                    color={TOKENS.primary}
+                  />
+                  <Text style={styles.alternativeTitle}>
+                    Daha Sağlıklı Bir Alternatif
+                  </Text>
+                </View>
+                <Text style={styles.alternativeProduct}>{alternative.title}</Text>
+                <Text style={styles.alternativeReason}>{alternative.reason}</Text>
+                <Text style={styles.alternativeFoot}>
+                  MVP: Aynı alt kategoride ve benzer fiyat segmentinde rafta arayın.
+                </Text>
+              </View>
+            ) : null}
+
+            <View style={{ paddingTop: 8 }}>
+              <PrimaryButton label="Kapat" icon="close-outline" onPress={onClose} />
+            </View>
+          </ScrollView>
         </View>
       </View>
     </Modal>
   );
 }
 
-function HomeScreen({ onOpenCamera, recent, onOpenProduct, weeklySummary }) {
+function HomeScreen({
+  onOpenCamera,
+  recent,
+  onOpenProduct,
+  weeklySummary,
+  onPickCategory,
+}) {
+  const maxBar = Math.max(
+    weeklySummary.green,
+    weeklySummary.yellow,
+    weeklySummary.red,
+    1
+  );
+  const barHeights = [
+    { key: "g", count: weeklySummary.green, color: TOKENS.primary, label: "Yeşil" },
+    {
+      key: "y",
+      count: weeklySummary.yellow,
+      color: TOKENS.warning,
+      label: "Sarı",
+    },
+    { key: "r", count: weeklySummary.red, color: TOKENS.danger, label: "Kırmızı" },
+  ].map((b) => ({
+    ...b,
+    h: Math.round((b.count / maxBar) * 52) || (b.count > 0 ? 8 : 4),
+  }));
+
   return (
     <ScrollView
       contentContainerStyle={styles.screenContainer}
@@ -444,8 +621,8 @@ function HomeScreen({ onOpenCamera, recent, onOpenProduct, weeklySummary }) {
       </View>
 
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Geçmiş Taramalar</Text>
-        <Text style={styles.sectionHint}>Son taradıkların</Text>
+        <Text style={styles.sectionTitle}>Son Taramalar</Text>
+        <Text style={styles.sectionHint}>Son taradıkların — detay için dokun</Text>
       </View>
 
       <ScrollView
@@ -492,64 +669,91 @@ function HomeScreen({ onOpenCamera, recent, onOpenProduct, weeklySummary }) {
         <PremiumCard style={styles.homeWeeklyCard}>
           <View style={styles.homeWeeklyTop}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.homeWeeklyTitle}>Haftalık Sağlık Analizin</Text>
+              <Text style={styles.homeWeeklyTitle}>Haftalık Sağlık Özeti</Text>
               <Text style={styles.homeWeeklySub}>
                 Bu hafta {weeklySummary.total} ürün tarandı
               </Text>
             </View>
             <Ionicons
-              name="bar-chart-outline"
-              size={20}
-              color={TOKENS.textSecondary}
+              name="stats-chart-outline"
+              size={22}
+              color={TOKENS.primary}
             />
           </View>
 
-          <View style={styles.homeWeeklyStats}>
-            <View style={styles.homeWeeklyStatItem}>
-              <View
-                style={[
-                  styles.dot,
-                  { backgroundColor: TOKENS.primary },
-                ]}
-              />
-              <Text style={styles.homeWeeklyStatLabel}>Temiz</Text>
-              <Text style={styles.homeWeeklyStatValue}>
-                {weeklySummary.clean}
-              </Text>
+          <View style={styles.weeklyCountsRow}>
+            <View style={styles.weeklyCountItem}>
+              <View style={[styles.dot, { backgroundColor: TOKENS.primary }]} />
+              <Text style={styles.weeklyCountLabel}>Yeşil</Text>
+              <Text style={styles.weeklyCountValue}>{weeklySummary.green}</Text>
             </View>
-            <View style={styles.homeWeeklyStatItem}>
+            <View style={styles.weeklyCountItem}>
               <View style={[styles.dot, { backgroundColor: TOKENS.danger }]} />
-              <Text style={styles.homeWeeklyStatLabel}>Riskli</Text>
-              <Text style={styles.homeWeeklyStatValue}>
-                {weeklySummary.risky}
-              </Text>
+              <Text style={styles.weeklyCountLabel}>Kırmızı</Text>
+              <Text style={styles.weeklyCountValue}>{weeklySummary.red}</Text>
+            </View>
+            <View style={styles.weeklyCountItem}>
+              <View style={[styles.dot, { backgroundColor: TOKENS.warning }]} />
+              <Text style={styles.weeklyCountLabel}>Sarı</Text>
+              <Text style={styles.weeklyCountValue}>{weeklySummary.yellow}</Text>
             </View>
           </View>
 
-          <View style={styles.segmentTrack}>
-            <View
-              style={[
-                styles.segmentFill,
-                { flex: weeklySummary.cleanRatio, backgroundColor: TOKENS.primary },
-              ]}
-            />
-            <View
-              style={[
-                styles.segmentFill,
-                {
-                  flex: 1 - weeklySummary.cleanRatio,
-                  backgroundColor: TOKENS.danger,
-                },
-              ]}
-            />
+          <Text style={styles.miniBarCaption}>Dağılım (mini bar)</Text>
+          <View style={styles.miniBarChart}>
+            {barHeights.map((b) => (
+              <View key={b.key} style={styles.miniBarCol}>
+                <View style={styles.miniBarTrack}>
+                  <View
+                    style={[
+                      styles.miniBarFillVertical,
+                      { height: b.h, backgroundColor: b.color },
+                    ]}
+                  />
+                </View>
+                <Text style={styles.miniBarCount}>{b.count}</Text>
+                <Text style={styles.miniBarLabel}>{b.label}</Text>
+              </View>
+            ))}
           </View>
         </PremiumCard>
+      </View>
+
+      <View style={{ paddingTop: 28 }}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Kategorilere Göre Keşfet</Text>
+          <Text style={styles.sectionHint}>İkonlu kısayollar</Text>
+        </View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.discoverRow}
+        >
+          {DISCOVER_CATEGORIES.map((cat) => (
+            <TouchableOpacity
+              key={cat.id}
+              accessibilityRole="button"
+              activeOpacity={0.88}
+              onPress={() => onPickCategory?.(cat)}
+              style={styles.discoverChipOuter}
+            >
+              <PremiumCard style={styles.discoverChip}>
+                <View style={styles.discoverIconWrap}>
+                  <Ionicons name={cat.icon} size={22} color={TOKENS.primary} />
+                </View>
+                <Text style={styles.discoverChipLabel} numberOfLines={2}>
+                  {cat.label}
+                </Text>
+              </PremiumCard>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
       </View>
     </ScrollView>
   );
 }
 
-function HistoryScreen({ history }) {
+function HistoryScreen({ history, onOpenProduct }) {
   const weeklyScore = 78;
   const weeklyVariant = getScoreVariant(weeklyScore);
   const c = getVariantColors(weeklyVariant);
@@ -599,7 +803,7 @@ function HistoryScreen({ history }) {
 
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Tarama Geçmişi</Text>
-        <Text style={styles.sectionHint}>Tüm taramalar</Text>
+        <Text style={styles.sectionHint}>Tüm taramalar — detay için dokun</Text>
       </View>
 
       <View style={{ gap: 12 }}>
@@ -607,26 +811,33 @@ function HistoryScreen({ history }) {
           const variant = getScoreVariant(item.score);
           const vc = getVariantColors(variant);
           return (
-            <PremiumCard key={item.id} style={styles.historyRow}>
-              <View style={styles.historyIcon}>
-                <Ionicons
-                  name="receipt-outline"
-                  size={18}
-                  color={TOKENS.textSecondary}
-                />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.historyTitle} numberOfLines={1}>
-                  {item.name}
-                </Text>
-                <Text style={styles.historySub}>{item.date}</Text>
-              </View>
-              <View style={[styles.scorePill, { backgroundColor: vc.tint }]}>
-                <Text style={[styles.scorePillText, { color: vc.text }]}>
-                  {item.score}
-                </Text>
-              </View>
-            </PremiumCard>
+            <TouchableOpacity
+              key={item.id}
+              accessibilityRole="button"
+              activeOpacity={0.88}
+              onPress={() => onOpenProduct(item)}
+            >
+              <PremiumCard style={styles.historyRow}>
+                <View style={styles.historyIcon}>
+                  <Ionicons
+                    name="receipt-outline"
+                    size={18}
+                    color={TOKENS.textSecondary}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.historyTitle} numberOfLines={1}>
+                    {item.name}
+                  </Text>
+                  <Text style={styles.historySub}>{item.date}</Text>
+                </View>
+                <View style={[styles.scorePill, { backgroundColor: vc.tint }]}>
+                  <Text style={[styles.scorePillText, { color: vc.text }]}>
+                    {item.score}
+                  </Text>
+                </View>
+              </PremiumCard>
+            </TouchableOpacity>
           );
         })}
       </View>
@@ -706,14 +917,15 @@ export default function App() {
   );
 
   const weeklySummary = useMemo(() => {
-    const clean = history.filter((h) => getScoreVariant(h.score) === "good").length;
-    const risky = history.filter((h) => getScoreVariant(h.score) !== "good").length;
-    const total = Math.max(1, clean + risky);
+    const green = history.filter((h) => getScoreVariant(h.score) === "good").length;
+    const yellow = history.filter((h) => getScoreVariant(h.score) === "warning").length;
+    const red = history.filter((h) => getScoreVariant(h.score) === "danger").length;
+    const total = green + yellow + red;
     return {
-      clean,
-      risky,
-      total: clean + risky,
-      cleanRatio: clean / total,
+      green,
+      yellow,
+      red,
+      total,
     };
   }, [history]);
 
@@ -747,13 +959,22 @@ export default function App() {
               recent={history.slice(0, 4)}
               onOpenCamera={() => setCameraOpen(true)}
               weeklySummary={weeklySummary}
+              onPickCategory={() => setCameraOpen(true)}
               onOpenProduct={(p) => {
                 setSelectedProduct(p);
                 setProductDetailOpen(true);
               }}
             />
           ) : null}
-          {activeTab === "history" ? <HistoryScreen history={history} /> : null}
+          {activeTab === "history" ? (
+            <HistoryScreen
+              history={history}
+              onOpenProduct={(p) => {
+                setSelectedProduct(p);
+                setProductDetailOpen(true);
+              }}
+            />
+          ) : null}
           {activeTab === "profile" ? (
             <ProfileScreen
               userEmail={session.email}
@@ -885,19 +1106,19 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
 
-  // Cards & shadows (premium dashboard)
+  // Cards & shadows (premium dashboard — DS elevation)
   cardBase: {
     backgroundColor: TOKENS.surface,
     borderRadius: 16,
     ...Platform.select({
       ios: {
-        shadowColor: "rgba(0, 0, 0, 0.04)",
-        shadowOpacity: 1,
+        shadowColor: "#000000",
+        shadowOpacity: 0.1,
         shadowRadius: 20,
         shadowOffset: { width: 0, height: 4 },
       },
       android: {
-        elevation: 3,
+        elevation: 4,
       },
     }),
   },
@@ -913,13 +1134,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     ...Platform.select({
       ios: {
-        shadowColor: "rgba(0, 0, 0, 0.04)",
-        shadowOpacity: 1,
+        shadowColor: "#000000",
+        shadowOpacity: 0.1,
         shadowRadius: 20,
         shadowOffset: { width: 0, height: 4 },
       },
       android: {
-        elevation: 7,
+        elevation: 4,
       },
     }),
   },
@@ -992,11 +1213,6 @@ const styles = StyleSheet.create({
   homeWeeklyCard: {
     padding: 18,
     borderRadius: 24,
-    ...Platform.select({
-      android: {
-        elevation: 3,
-      },
-    }),
   },
   homeWeeklyTop: {
     flexDirection: "row",
@@ -1017,24 +1233,25 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     paddingTop: 6,
   },
-  homeWeeklyStats: {
+  weeklyCountsRow: {
     flexDirection: "row",
-    gap: 16,
-    paddingBottom: 12,
+    flexWrap: "wrap",
+    gap: 14,
+    paddingBottom: 14,
   },
-  homeWeeklyStatItem: {
+  weeklyCountItem: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
   },
-  homeWeeklyStatLabel: {
+  weeklyCountLabel: {
     color: TOKENS.textSecondary,
     fontSize: 12,
     fontWeight: "700",
   },
-  homeWeeklyStatValue: {
+  weeklyCountValue: {
     color: TOKENS.textPrimary,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: "800",
   },
   dot: {
@@ -1042,15 +1259,80 @@ const styles = StyleSheet.create({
     height: 10,
     borderRadius: 999,
   },
-  segmentTrack: {
-    height: 10,
-    borderRadius: 999,
-    overflow: "hidden",
-    flexDirection: "row",
-    backgroundColor: "rgba(100, 116, 139, 0.12)",
+  miniBarCaption: {
+    color: TOKENS.textSecondary,
+    fontSize: 12,
+    fontWeight: "700",
+    paddingBottom: 10,
   },
-  segmentFill: {
-    height: 10,
+  miniBarChart: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+    gap: 12,
+    paddingTop: 4,
+  },
+  miniBarCol: {
+    flex: 1,
+    alignItems: "center",
+    gap: 6,
+  },
+  miniBarTrack: {
+    width: "100%",
+    height: 56,
+    borderRadius: 12,
+    backgroundColor: "rgba(100, 116, 139, 0.10)",
+    justifyContent: "flex-end",
+    overflow: "hidden",
+    paddingHorizontal: 6,
+    paddingBottom: 6,
+    paddingTop: 6,
+  },
+  miniBarFillVertical: {
+    width: "100%",
+    borderRadius: 8,
+    minHeight: 4,
+  },
+  miniBarCount: {
+    color: TOKENS.textPrimary,
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  miniBarLabel: {
+    color: TOKENS.textSecondary,
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  discoverRow: {
+    paddingRight: 24,
+    gap: 12,
+    paddingBottom: 4,
+  },
+  discoverChipOuter: {
+    maxWidth: 112,
+  },
+  discoverChip: {
+    width: 104,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    alignItems: "center",
+    gap: 10,
+  },
+  discoverIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: "rgba(5, 150, 105, 0.10)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  discoverChipLabel: {
+    color: TOKENS.textPrimary,
+    fontSize: 12,
+    fontWeight: "800",
+    textAlign: "center",
+    lineHeight: 16,
   },
 
   // Tabs
@@ -1067,13 +1349,13 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     ...Platform.select({
       ios: {
-        shadowColor: "rgba(0, 0, 0, 0.04)",
-        shadowOpacity: 1,
+        shadowColor: "#000000",
+        shadowOpacity: 0.1,
         shadowRadius: 20,
         shadowOffset: { width: 0, height: 4 },
       },
       android: {
-        elevation: 10,
+        elevation: 4,
       },
     }),
   },
@@ -1168,32 +1450,59 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
 
-  // Analysis modal
-  modalOverlay: {
+  // Bottom sheets & modals
+  bottomSheetOverlay: {
     flex: 1,
-    backgroundColor: "rgba(15, 23, 42, 0.35)",
-    padding: 16,
-    justifyContent: "center",
+    justifyContent: "flex-end",
   },
-  modalCard: {
+  bottomSheetBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(15, 23, 42, 0.35)",
+  },
+  bottomSheet: {
+    height: BOTTOM_SHEET_HEIGHT,
+    width: "100%",
     backgroundColor: TOKENS.surface,
-    borderRadius: 24,
-    padding: 18,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingBottom: 20,
+    paddingHorizontal: 18,
+    paddingTop: 8,
     ...Platform.select({
       ios: {
-        shadowColor: "rgba(0, 0, 0, 0.04)",
-        shadowOpacity: 1,
-        shadowRadius: 20,
-        shadowOffset: { width: 0, height: 4 },
+        shadowColor: "#000000",
+        shadowOpacity: 0.1,
+        shadowRadius: 24,
+        shadowOffset: { width: 0, height: -4 },
       },
       android: {
-        elevation: 12,
+        elevation: 8,
       },
     }),
   },
+  bottomSheetHandle: {
+    alignSelf: "center",
+    width: 44,
+    height: 5,
+    borderRadius: 999,
+    backgroundColor: "rgba(100, 116, 139, 0.22)",
+    marginBottom: 10,
+  },
+  bottomSheetLoadingWrap: {
+    flex: 1,
+    justifyContent: "center",
+    minHeight: 200,
+  },
+  bottomSheetScrollFlex: {
+    flex: 1,
+  },
+  bottomSheetScroll: {
+    paddingBottom: 24,
+    gap: 16,
+  },
   loadingBlock: {
     alignItems: "center",
-    paddingVertical: 10,
+    paddingVertical: 24,
     gap: 12,
   },
   resultBlock: {
@@ -1232,6 +1541,9 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     textAlign: "center",
   },
+  modalSubLeft: {
+    textAlign: "left",
+  },
   modalSection: {
     gap: 10,
   },
@@ -1244,6 +1556,74 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 10,
+  },
+
+  detailScoreRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
+    paddingTop: 8,
+  },
+  donutWrap: {
+    width: 88,
+    height: 88,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  donutRing: {
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    borderWidth: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: TOKENS.surface,
+  },
+  donutScore: {
+    fontSize: 22,
+    fontWeight: "800",
+    letterSpacing: -0.3,
+  },
+  donutLabel: {
+    fontSize: 11,
+    color: TOKENS.textSecondary,
+    fontWeight: "700",
+    marginTop: -2,
+  },
+  alternativeCard: {
+    marginTop: 4,
+    padding: 16,
+    borderRadius: 16,
+    backgroundColor: "rgba(5, 150, 105, 0.08)",
+    gap: 8,
+  },
+  alternativeHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  alternativeTitle: {
+    color: TOKENS.textPrimary,
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  alternativeProduct: {
+    color: TOKENS.primary,
+    fontSize: 15,
+    fontWeight: "800",
+    lineHeight: 21,
+  },
+  alternativeReason: {
+    color: TOKENS.textSecondary,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  alternativeFoot: {
+    color: TOKENS.textSecondary,
+    fontSize: 11,
+    lineHeight: 16,
+    fontStyle: "italic",
+    paddingTop: 4,
   },
 
   // Camera modal
@@ -1270,13 +1650,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     ...Platform.select({
       ios: {
-        shadowColor: "rgba(0, 0, 0, 0.04)",
-        shadowOpacity: 1,
+        shadowColor: "#000000",
+        shadowOpacity: 0.1,
         shadowRadius: 20,
         shadowOffset: { width: 0, height: 4 },
       },
       android: {
-        elevation: 8,
+        elevation: 4,
       },
     }),
   },
