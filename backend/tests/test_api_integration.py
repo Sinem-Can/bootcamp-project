@@ -31,7 +31,10 @@ def test_register_then_login_conflict(client):
   assert r1.status_code == 201
   r_conflict = client.post('/auth/register', json=body)
   assert r_conflict.status_code == 409
-  login = client.post('/auth/login', json={'email': body['email'], 'password': body['password']})
+  login = client.post(
+    '/auth/login',
+    data={'username': body['email'], 'password': body['password']},
+  )
   assert login.status_code == 200
   assert 'access_token' in login.json()
 
@@ -84,33 +87,15 @@ def test_product_score_green(client, auth_headers):
   assert body['status'] == 'GREEN'
 
 
-def test_users_list_allowed_in_development(client):
+def test_users_requires_jwt_when_anonymous(client):
   r = client.get('/users')
+  assert r.status_code == 401
+
+
+def test_users_list_ok_with_valid_token(client, auth_headers):
+  r = client.get('/users', headers=auth_headers)
   assert r.status_code == 200
   assert isinstance(r.json(), list)
-
-
-def test_users_forbidden_in_production(client, monkeypatch):
-  from app.core import config
-
-  monkeypatch.setattr(config.settings, 'environment', 'production', raising=False)
-  monkeypatch.setattr(config.settings, 'admin_api_key', None, raising=False)
-  r = client.get('/users')
-  assert r.status_code == 403
-
-
-def test_users_admin_key_required(client, monkeypatch):
-  from app.core import config
-
-  secret = 'pytest-admin-key-fixed-len32!!'
-  monkeypatch.setattr(config.settings, 'environment', 'production', raising=False)
-  monkeypatch.setattr(config.settings, 'admin_api_key', secret, raising=False)
-
-  denied = client.get('/users')
-  assert denied.status_code == 403
-
-  ok = client.get('/users', headers={'X-Admin-Api-Key': secret})
-  assert ok.status_code == 200
 
 
 def test_missing_product_without_r2(client, monkeypatch):

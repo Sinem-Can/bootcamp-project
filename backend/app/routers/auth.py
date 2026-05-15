@@ -1,13 +1,25 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import create_access_token, hash_password, verify_password
 from app.db.models import User
 from app.db.session import get_db
-from app.schemas.auth import AuthResponse, AuthUserInfo, LoginRequest, RegisterRequest
+from app.schemas.auth import AuthResponse, AuthUserInfo, RegisterRequest
 
 router = APIRouter(prefix='/auth', tags=['auth'])
+
+_LOGIN_DESCRIPTION = """OAuth 2 uyumlu form gövdesi.
+
+- **username**: kayıtlı **e-posta** adresiniz (OAuth2 alanı olduğu için isim olarak `username` kullanılıyor).
+- **password**: şifreniz.
+
+Swagger’daki yeşil **Authorize** ile de aynı uç kullanılabilir."""
+
+_LOGIN_SUMMARY = 'Giriş (OAuth2 password form — username alanında e-posta)'
 
 
 @router.post('/register', response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
@@ -37,15 +49,23 @@ async def register(payload: RegisterRequest, db: AsyncSession = Depends(get_db))
   )
 
 
-@router.post('/login', response_model=AuthResponse)
-async def login(payload: LoginRequest, db: AsyncSession = Depends(get_db)) -> AuthResponse:
-  email_normalized = str(payload.email).lower()
+@router.post(
+  '/login',
+  response_model=AuthResponse,
+  summary=_LOGIN_SUMMARY,
+  description=_LOGIN_DESCRIPTION,
+)
+async def login(
+  form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
+  db: AsyncSession = Depends(get_db),
+) -> AuthResponse:
+  email_normalized = str(form_data.username).strip().lower()
   row_result = await db.execute(select(User).where(User.email == email_normalized))
   row = row_result.scalar_one_or_none()
   if not row or not row.hashed_password:
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Invalid credentials')
 
-  if not verify_password(plain_password=payload.password, hashed_password=row.hashed_password):
+  if not verify_password(plain_password=form_data.password, hashed_password=row.hashed_password):
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Invalid credentials')
 
   token = create_access_token(subject=str(row.id))

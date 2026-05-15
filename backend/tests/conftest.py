@@ -10,8 +10,6 @@ _tmp = tempfile.NamedTemporaryFile(prefix="temiz_pytest_", suffix=".sqlite", del
 _tmp.close()
 
 os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{Path(_tmp.name).as_posix()}"
-os.environ['ENVIRONMENT'] = 'development'
-os.environ.pop('ADMIN_API_KEY', None)
 
 
 def pytest_sessionfinish(session, exitstatus):  # noqa: ARG001

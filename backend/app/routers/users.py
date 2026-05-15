@@ -2,9 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.deps.users_management import require_users_management_access
 from app.db.models import User
 from app.db.session import get_db
+from app.deps.auth import get_current_user
 from app.schemas.user import UserCreate, UserResponse
 
 router = APIRouter(prefix='/users', tags=['users'])
@@ -13,7 +13,7 @@ router = APIRouter(prefix='/users', tags=['users'])
 @router.get('', response_model=list[UserResponse])
 async def list_users(
   db: AsyncSession = Depends(get_db),
-  _access: None = Depends(require_users_management_access),
+  _current_user: User = Depends(get_current_user),
 ) -> list[UserResponse]:
   result = await db.execute(select(User).order_by(User.created_at))
   rows = result.scalars().all()
@@ -24,7 +24,7 @@ async def list_users(
 async def create_user(
   payload: UserCreate,
   db: AsyncSession = Depends(get_db),
-  _access: None = Depends(require_users_management_access),
+  _current_user: User = Depends(get_current_user),
 ) -> UserResponse:
   email_normalized = str(payload.email).lower()
   result = await db.execute(select(User).where(User.email == email_normalized))
@@ -50,7 +50,7 @@ async def create_user(
 async def delete_user(
   user_id: int,
   db: AsyncSession = Depends(get_db),
-  _access: None = Depends(require_users_management_access),
+  _current_user: User = Depends(get_current_user),
 ) -> None:
   row = await db.get(User, user_id)
   if not row:
