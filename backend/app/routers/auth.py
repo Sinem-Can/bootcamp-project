@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.core.security import create_access_token
-from app.schemas.auth import AuthResponse, LoginRequest, RegisterRequest
+from app.schemas.auth import AuthResponse, AuthUserInfo, LoginRequest, RegisterRequest
 from app.services.user_service import UserService, get_user_service
 
 router = APIRouter(prefix='/auth', tags=['auth'])
@@ -22,7 +22,10 @@ async def register(
     raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
 
   token = create_access_token(subject=str(user.id))
-  return AuthResponse(access_token=token)
+  return AuthResponse(
+    access_token=token,
+    user=AuthUserInfo(id=user.id, email=user.email, full_name=user.full_name),
+  )
 
 
 @router.post('/login', response_model=AuthResponse)
@@ -35,4 +38,7 @@ async def login(
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Invalid credentials')
 
   token = create_access_token(subject=str(user.id))
-  return AuthResponse(access_token=token)
+  return AuthResponse(
+    access_token=token,
+    user=AuthUserInfo(id=user.id, email=user.email, full_name=user.full_name),
+  )

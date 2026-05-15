@@ -112,7 +112,11 @@ async function registerUser({ email, password, fullName }) {
     const detail = await parseApiError(response);
     throw new Error(mapAuthErrorMessage(detail, response.status));
   }
-  return response.json();
+  const data = await response.json();
+  if (!data?.access_token) {
+    throw new Error("Sunucudan geçersiz yanıt alındı. Backend güncel mi?");
+  }
+  return data;
 }
 
 async function loginUser({ email, password }) {
@@ -131,7 +135,11 @@ async function loginUser({ email, password }) {
     const detail = await parseApiError(response);
     throw new Error(mapAuthErrorMessage(detail, response.status));
   }
-  return response.json();
+  const data = await response.json();
+  if (!data?.access_token) {
+    throw new Error("Sunucudan geçersiz yanıt alındı. Backend güncel mi?");
+  }
+  return data;
 }
 
 const TAB_ITEMS = [
@@ -499,10 +507,10 @@ function LoginScreen({ onAuthSuccess }) {
         await loginUser({ email, password });
         onAuthSuccess({ email, displayName: "" });
       } else {
-        await registerUser({ email, password, fullName });
+        const result = await registerUser({ email, password, fullName });
         onAuthSuccess({
-          email,
-          displayName: fullName.trim(),
+          email: result.user?.email || email,
+          displayName: result.user?.full_name || fullName.trim(),
         });
       }
     } catch (error) {

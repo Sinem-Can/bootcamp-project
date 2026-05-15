@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from pydantic import BaseModel, EmailStr, Field
 
 
@@ -12,6 +14,13 @@ class LoginRequest(BaseModel):
   password: str = Field(min_length=8)
 
 
+class AuthUserInfo(BaseModel):
+  id: UUID
+  email: EmailStr
+  full_name: str
+
+
 class AuthResponse(BaseModel):
   access_token: str
   token_type: str = 'bearer'
+  user: AuthUserInfo

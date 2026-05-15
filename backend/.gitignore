@@ -1,0 +1,7 @@
+data/users.json
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+temizsepet.db
+.env
