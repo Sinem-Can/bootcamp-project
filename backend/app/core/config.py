@@ -4,8 +4,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
   model_config = SettingsConfigDict(env_file='.env', extra='ignore')
 
-  database_url: str
-  jwt_secret: str
+  database_url: str = 'sqlite+aiosqlite:///./temizsepet.db'
+  jwt_secret: str = 'dev-secret-change-in-production'
   jwt_alg: str = 'HS256'
   jwt_access_token_expires_min: int = 60 * 24 * 7
 

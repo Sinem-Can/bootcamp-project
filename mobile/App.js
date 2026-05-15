@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
+  Alert,
   Dimensions,
   KeyboardAvoidingView,
   Modal,
@@ -28,6 +29,81 @@ const TOKENS = {
 
 const SWITCH_TRACK_OFF = "rgba(100, 116, 139, 0.28)";
 const SWITCH_TRACK_ON = "rgba(5, 150, 105, 0.45)";
+
+// Android emülatöründe makine localhost'u 10.0.2.2 üzerinden erişilir.
+const API_BASE_URL =
+  Platform.OS === "android"
+    ? "http://10.0.2.2:8000"
+    : "http://127.0.0.1:8000";
+
+async function parseApiError(response) {
+  try {
+    const data = await response.json();
+    if (typeof data?.detail === "string") return data.detail;
+    if (Array.isArray(data?.detail)) {
+      return data.detail
+        .map((entry) => entry?.msg || JSON.stringify(entry))
+        .join("\n");
+    }
+  } catch (_) {
+    // ignore JSON parse errors
+  }
+  return null;
+}
+
+function mapAuthErrorMessage(detail, status) {
+  const normalized = (detail || "").toLowerCase();
+  if (status === 409 || normalized.includes("already registered")) {
+    return "Bu e-posta adresi zaten kayıtlı.";
+  }
+  if (status === 401 || normalized.includes("invalid credentials")) {
+    return "E-posta veya şifre hatalı.";
+  }
+  if (normalized.includes("at least 8")) {
+    return "Şifre en az 8 karakter olmalıdır.";
+  }
+  if (detail) return detail;
+  return "İşlem tamamlanamadı. Lütfen tekrar deneyin.";
+}
+
+async function registerUser({ email, password, fullName }) {
+  const response = await fetch(`${API_BASE_URL}/auth/register`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify({
+      email: email.trim(),
+      password,
+      full_name: fullName.trim(),
+    }),
+  });
+  if (!response.ok) {
+    const detail = await parseApiError(response);
+    throw new Error(mapAuthErrorMessage(detail, response.status));
+  }
+  return response.json();
+}
+
+async function loginUser({ email, password }) {
+  const response = await fetch(`${API_BASE_URL}/auth/login`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify({
+      email: email.trim(),
+      password,
+    }),
+  });
+  if (!response.ok) {
+    const detail = await parseApiError(response);
+    throw new Error(mapAuthErrorMessage(detail, response.status));
+  }
+  return response.json();
+}
 
 const TAB_ITEMS = [
   { id: "home", label: "Home", icon: "home-outline" },
@@ -349,13 +425,14 @@ function ScansEmptyState({ onPressCamera }) {
   );
 }
 
-function PrimaryButton({ label, icon, onPress, style }) {
+function PrimaryButton({ label, icon, onPress, style, disabled }) {
   return (
     <TouchableOpacity
       activeOpacity={0.9}
       accessibilityRole="button"
-      style={[styles.primaryButton, style]}
-      onPress={onPress}
+      style={[styles.primaryButton, style, disabled ? { opacity: 0.6 } : null]}
+      onPress={disabled ? undefined : onPress}
+      disabled={disabled}
     >
       <View style={styles.primaryButtonInner}>
         {icon ? (
@@ -374,14 +451,41 @@ function LoginScreen({ onAuthSuccess }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const canSubmitLogin =
-    email.trim().length > 2 && password.trim().length > 2;
+    email.trim().length > 2 && password.trim().length >= 8;
   const canSubmitRegister =
     canSubmitLogin && fullName.trim().length > 1;
   const canSubmit = mode === "login" ? canSubmitLogin : canSubmitRegister;
 
   const isLogin = mode === "login";
+
+  const handleSubmit = async () => {
+    if (!canSubmit || loading) return;
+
+    setLoading(true);
+    try {
+      if (isLogin) {
+        await loginUser({ email, password });
+        onAuthSuccess({ email, displayName: "" });
+      } else {
+        await registerUser({ email, password, fullName });
+        onAuthSuccess({
+          email,
+          displayName: fullName.trim(),
+        });
+      }
+    } catch (error) {
+      const message =
+        error?.message === "Network request failed"
+          ? "Sunucuya bağlanılamadı. Backend'in çalıştığından emin olun (http://127.0.0.1:8000)."
+          : error?.message || "Beklenmeyen bir hata oluştu.";
+      Alert.alert(isLogin ? "Giriş başarısız" : "Kayıt başarısız", message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -472,20 +576,19 @@ function LoginScreen({ onAuthSuccess }) {
             </View>
 
             <PrimaryButton
-              label={isLogin ? "Giriş Yap" : "Kayıt Ol"}
+              label={
+                loading
+                  ? isLogin
+                    ? "Giriş yapılıyor…"
+                    : "Kayıt olunuyor…"
+                  : isLogin
+                    ? "Giriş Yap"
+                    : "Kayıt Ol"
+              }
               icon={isLogin ? "log-in-outline" : "person-add-outline"}
-              style={{ marginTop: 18, opacity: canSubmit ? 1 : 0.6 }}
-              onPress={() => {
-                if (!canSubmit) return;
-                if (isLogin) {
-                  onAuthSuccess({ email, displayName: "" });
-                } else {
-                  onAuthSuccess({
-                    email,
-                    displayName: fullName.trim(),
-                  });
-                }
-              }}
+              style={{ marginTop: 18 }}
+              disabled={!canSubmit || loading}
+              onPress={handleSubmit}
             />
           </PremiumCard>
 
