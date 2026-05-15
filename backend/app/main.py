@@ -3,25 +3,28 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import func, select
 
+from app.database import Base, SessionLocal, engine
+from app.db import models as db_models  # noqa: F401 — tabloları metadata'ya kaydet
 from app.routers.auth import router as auth_router
 from app.routers.users import router as users_router
-from app.services.user_service import get_user_service
 
 logging.basicConfig(level=logging.INFO)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-  service = get_user_service()
-  count = len(service.list_users())
-  logging.info('TemizSepet API ready — %d kullanıcı yüklü (kayıtlar: data/users.json)', count)
+  Base.metadata.create_all(bind=engine)
+  with SessionLocal() as session:
+    count = session.scalar(select(func.count()).select_from(db_models.User)) or 0
+  logging.info('TemizSepet API ready — SQLite: temizsepet.db (%d users)', count)
   yield
 
 
 app = FastAPI(
   title='TemizSepet API',
-  description='TemizSepet backend — in-memory kullanıcı yönetimi (MVP iskelet)',
+  description='TemizSepet backend — SQLite + SQLAlchemy',
   version='0.1.0',
   lifespan=lifespan,
 )
