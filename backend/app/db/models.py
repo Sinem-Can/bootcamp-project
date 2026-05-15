@@ -6,7 +6,7 @@ from sqlalchemy import DateTime, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import JSON
 
-from app.database import Base
+from app.db.base import Base
 
 
 class User(Base):

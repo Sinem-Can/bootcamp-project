@@ -5,8 +5,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import func, select
 
-from app.database import Base, SessionLocal, engine
+from app.db.base import Base
 from app.db import models as db_models  # noqa: F401 — tabloları metadata'ya kaydet
+from app.db.session import async_session, engine
 from app.routers.auth import router as auth_router
 from app.routers.users import router as users_router
 
@@ -15,16 +16,17 @@ logging.basicConfig(level=logging.INFO)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-  Base.metadata.create_all(bind=engine)
-  with SessionLocal() as session:
-    count = session.scalar(select(func.count()).select_from(db_models.User)) or 0
-  logging.info('TemizSepet API ready — SQLite: temizsepet.db (%d users)', count)
+  async with engine.begin() as conn:
+    await conn.run_sync(Base.metadata.create_all)
+  async with async_session() as session:
+    count = await session.scalar(select(func.count()).select_from(db_models.User)) or 0
+  logging.info('TemizSepet API ready (%d users)', count)
   yield
 
 
 app = FastAPI(
   title='TemizSepet API',
-  description='TemizSepet backend — SQLite + SQLAlchemy',
+  description='TemizSepet backend — FastAPI + SQLAlchemy (async)',
   version='0.1.0',
   lifespan=lifespan,
 )
