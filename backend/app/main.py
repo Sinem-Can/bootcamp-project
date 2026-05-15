@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
@@ -5,9 +6,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import func, select
 
-from app.db.base import Base
+from app.core.config import settings
 from app.db import models as db_models  # noqa: F401 — tabloları metadata'ya kaydet
-from app.db.session import async_session, engine
+from app.db.migration import upgrade_to_head_sync
+from app.db.session import async_session
 from app.routers.auth import router as auth_router
 from app.routers.missing_product import router as missing_product_router
 from app.routers.product import router as product_router
@@ -19,10 +21,15 @@ logging.basicConfig(level=logging.INFO)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-  async with engine.begin() as conn:
-    await conn.run_sync(Base.metadata.create_all)
+  if settings.run_migrations_on_startup:
+    logging.info('DB: alembic upgrade head (RUN_MIGRATIONS_ON_STARTUP)')
+    await asyncio.to_thread(upgrade_to_head_sync)
+  else:
+    logging.info('DB migrations skipped; set RUN_MIGRATIONS_ON_STARTUP=true or run: alembic upgrade head')
+
   async with async_session() as session:
     count = await session.scalar(select(func.count()).select_from(db_models.User)) or 0
+
   logging.info('TemizSepet API ready (%d users)', count)
   yield
 
