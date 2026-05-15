@@ -1,8 +1,13 @@
+from typing import Literal
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
   model_config = SettingsConfigDict(env_file='.env', extra='ignore')
+
+  environment: Literal['development', 'production'] = 'development'
+  admin_api_key: str | None = None
 
   database_url: str = 'sqlite+aiosqlite:///./temizsepet.db'
   jwt_secret: str = 'dev-secret-change-in-production'
