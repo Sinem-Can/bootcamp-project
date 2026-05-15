@@ -16,6 +16,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions } from "expo-camera";
+import Constants from "expo-constants";
 
 const TOKENS = {
   primary: "#059669",
@@ -30,11 +31,39 @@ const TOKENS = {
 const SWITCH_TRACK_OFF = "rgba(100, 116, 139, 0.28)";
 const SWITCH_TRACK_ON = "rgba(5, 150, 105, 0.45)";
 
-// Android emülatöründe makine localhost'u 10.0.2.2 üzerinden erişilir.
-const API_BASE_URL =
-  Platform.OS === "android"
-    ? "http://10.0.2.2:8000"
-    : "http://127.0.0.1:8000";
+const API_PORT = 8000;
+
+/** Expo Go (fiziksel telefon): Metro ile aynı bilgisayar IP'si; emülatör: 10.0.2.2 / 127.0.0.1 */
+function resolveApiBaseUrl() {
+  const manualUrl = Constants.expoConfig?.extra?.apiUrl;
+  if (typeof manualUrl === "string" && manualUrl.trim()) {
+    return manualUrl.trim().replace(/\/$/, "");
+  }
+
+  const hostCandidate =
+    Constants.expoGoConfig?.debuggerHost ??
+    Constants.expoConfig?.hostUri ??
+    Constants.manifest?.debuggerHost ??
+    null;
+
+  if (hostCandidate) {
+    const host = hostCandidate.split(":")[0];
+    if (host && host !== "localhost" && host !== "127.0.0.1") {
+      return `http://${host}:${API_PORT}`;
+    }
+  }
+
+  if (Platform.OS === "android") {
+    return `http://10.0.2.2:${API_PORT}`;
+  }
+  return `http://127.0.0.1:${API_PORT}`;
+}
+
+const API_BASE_URL = resolveApiBaseUrl();
+
+if (__DEV__) {
+  console.log("[TemizSepet] API:", API_BASE_URL);
+}
 
 async function parseApiError(response) {
   try {
@@ -479,7 +508,7 @@ function LoginScreen({ onAuthSuccess }) {
     } catch (error) {
       const message =
         error?.message === "Network request failed"
-          ? "Sunucuya bağlanılamadı. Backend'in çalıştığından emin olun (http://127.0.0.1:8000)."
+          ? `Sunucuya bağlanılamadı (${API_BASE_URL}).\n\n• Backend: uvicorn --host 0.0.0.0 --port 8000\n• Telefon ve bilgisayar aynı Wi‑Fi'de\n• Expo'yu LAN ile başlatın: npx expo start --lan\n• Gerekirse app.json içinde extra.apiUrl ile IP yazın`
           : error?.message || "Beklenmeyen bir hata oluştu.";
       Alert.alert(isLogin ? "Giriş başarısız" : "Kayıt başarısız", message);
     } finally {
