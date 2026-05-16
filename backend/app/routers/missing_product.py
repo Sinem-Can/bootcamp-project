@@ -10,7 +10,7 @@ from app.core.event_types import MISSING_PRODUCT_REPORTED
 from app.db.models import MissingProduct
 from app.services.application_event_log_service import record_application_event
 from app.db.session import async_session, get_db
-from app.integrations.r2 import build_public_url, get_r2_client
+from app.integrations.r2 import build_public_url, get_r2_client, r2_upload_configuration_blockers
 
 router = APIRouter(prefix='/product', tags=['missing-product'])
 
@@ -47,8 +47,16 @@ async def report_missing_product(
   photo: UploadFile = File(...),
   db: AsyncSession = Depends(get_db),
 ):
-  if not settings.r2_bucket:
-    raise HTTPException(status_code=500, detail='R2 is not configured')
+  blockers = r2_upload_configuration_blockers()
+  if blockers:
+    raise HTTPException(
+      status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+      detail={
+        'error': 'object_storage_not_configured',
+        'message': 'Missing product photo upload requires R2/S3-compatible storage env vars.',
+        'missing_env': blockers,
+      },
+    )
 
   missing = MissingProduct(barkod_no=barcode_no, status='queued')
   db.add(missing)

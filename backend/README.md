@@ -31,6 +31,16 @@ DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/temizsepet
 python -m uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
+## Ürün seed (QA)
+
+Örnek barkodlarla `products` tablosunu doldurmak için:
+
+```bash
+python -m uv run python -m scripts.seed_products
+```
+
+Örnek barkodlar: `8680701400123`, `8680701400456`, `8680701400789`, `8680701400999`.
+
 ## Endpoint'ler (MVP)
 - `POST /auth/register`
 - `POST /auth/login`
