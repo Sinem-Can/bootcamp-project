@@ -87,6 +87,39 @@ def test_product_score_green(client, auth_headers):
   assert body['status'] == 'GREEN'
 
 
+def test_progress_logs_after_product_scan(client, auth_headers):
+  from app.db.session import async_session
+
+  barkod = '8690000999001'
+
+  async def seed():
+    async with async_session() as s:
+      s.add(
+        Product(
+          barkod=barkod,
+          ad='Su Test',
+          kategori='içecek',
+          fiyat_segmenti=1,
+          icerik='su',
+        )
+      )
+      await s.commit()
+
+  asyncio.run(seed())
+
+  assert client.get(f'/product/{barkod}', headers=auth_headers).status_code == 200
+  summary = client.get('/progress/summary', headers=auth_headers)
+  assert summary.status_code == 200
+  assert summary.json()['engagement']['product_analyses_recorded'] >= 1
+  analyses = client.get('/progress/analyses', headers=auth_headers)
+  assert analyses.status_code == 200
+  assert analyses.json()[0]['barkod'] == barkod
+  events = client.get('/progress/events', headers=auth_headers)
+  assert events.status_code == 200
+  types = {e['event_type'] for e in events.json()}
+  assert 'product.scanned' in types
+
+
 def test_users_requires_jwt_when_anonymous(client):
   r = client.get('/users')
   assert r.status_code == 401

@@ -73,6 +73,8 @@ def test_alembic_upgrade_noop_when_tables_from_create_all():
       check=False,
     )
     assert result.returncode == 0
-    assert 'e51c8113685a' in (result.stdout or '')
+    out = result.stdout or ''
+    assert 'head' in out
+    assert '3c9f1e2a8b45' in out
   finally:
     Path(path).unlink(missing_ok=True)

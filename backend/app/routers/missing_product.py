@@ -6,7 +6,9 @@ from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPExcepti
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.core.event_types import MISSING_PRODUCT_REPORTED
 from app.db.models import MissingProduct
+from app.services.application_event_log_service import record_application_event
 from app.db.session import async_session, get_db
 from app.integrations.r2 import build_public_url, get_r2_client
 
@@ -52,6 +54,12 @@ async def report_missing_product(
   db.add(missing)
   await db.commit()
   await db.refresh(missing)
+
+  await record_application_event(
+    user_id=None,
+    event_type=MISSING_PRODUCT_REPORTED,
+    payload={'missing_product_id': missing.id, 'barkod_no': barcode_no},
+  )
 
   file_bytes = await photo.read()
   object_key = f'missing-products/{barcode_no}/{uuid.uuid4().hex}'
